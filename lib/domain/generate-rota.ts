@@ -114,10 +114,11 @@ function buildMorning(products: Product[]): RoutineStep[] {
 
   if (cleanser) steps.push(toStep(cleanser));
 
-  for (const activeClass of AM_TREATMENT_ORDER) {
-    const product = firstClass(products, activeClass);
-    if (product) steps.push(toStep(product));
-  }
+  const morningTreatment = AM_TREATMENT_ORDER
+    .map((activeClass) => firstClass(products, activeClass))
+    .find(Boolean);
+
+  if (morningTreatment) steps.push(toStep(morningTreatment));
 
   if (moisturiser) steps.push(toStep(moisturiser));
   if (sunscreen) steps.push(toStep(sunscreen, "Final morning step"));
@@ -139,9 +140,6 @@ function buildEvening(
 
   if (treatment) {
     steps.push(toStep(treatment));
-  } else {
-    const gentle = firstClass(products, "azelaic_acid") ?? firstClass(products, "niacinamide");
-    if (gentle) steps.push(toStep(gentle));
   }
 
   if (moisturiser) steps.push(toStep(moisturiser));
