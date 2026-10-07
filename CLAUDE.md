@@ -1,5 +1,31 @@
 # Claude Code build contract
 
+## CURRENT RELEASE AUTHORITY — 8 October 2026
+
+The **October 16 private 10-user pilot** is the delivery target. Read these before making product or architecture decisions:
+- `docs/CLAUDE_DESIGN_V1_2.md` — frozen brand + corrected design/product contract
+- `docs/INGESTION_BENCHMARK.md` — 30-real-label acceptance gate; run `scripts/evaluate-label-benchmark.mjs`
+- `docs/PILOT_OCT16.md` — dated milestones and acceptance checks
+
+**Authority order:** reviewed product and safety requirements → approved Brand v4 + Claude Design v1.2 for UI → this repo's pure domain/application contracts → existing rough UI prototype. Do not transplant illustrative clinical recommendations from the Claude Design prototype.
+
+**One nonnegotiable differentiator:** add *any* owned product via scan, search, pasted ingredients or gallery; then confirm the extracted data. Every product can be on Shelf. Unknown ingredients must not be treated as confidently analysed. Source/provenance and uncertainty are explicit. Show **SafetyFlag** only for pharmacist/dermatologist-reviewed rule fixtures or separately sourced regulatory product alerts. A label scan cannot establish the absence of undeclared adulterants.
+
+**Identity:** Supabase anonymous identity at first meaningful write; cookie-backed SSR; later Google/Apple/email six-digit code **in pilot**. Ask display name before guests invite. Invite link is a reusable opaque token with separate joins/pairs; a group/Status link may bring multiple users. Paired Friend Streak advances only after both members' own eligible days complete. WhatsApp-first share and a user-initiated WhatsApp nudge are launch features; bonus Rescue and push nudge are experiments/later.
+
+**PWA:** WebKit iOS 17.2+ copies cookies on install, not IndexedDB/LocalStorage. Supabase rotated refresh tokens can still invalidate stale copied sessions. Test Safari → Home Screen app → Safari again beyond reuse leeway, plus recovery/claim UX, on real devices. Do not promise anonymous recovery without a linked credential. Android Chrome push can be browser-level where permission is supported; iOS Web Push requires Home Screen installation. Don't manufacture an "app store" CTA.
+
+**Scheduling:** 04:00 local skincare-day rollover; rest days check in; fixed treatment plan (no missed-session doubling); one Rescue per rota, including last day; preserve streak without awarding an unearned completed day; history-aware rota edits; optional swap-to-recovery when skin feels irritated. Unknown product compatibility and missing rule default to **insufficient_evidence**, never compatible.
+
+**Quality gates:** 30 consented Lagos/GCC/difficult label tests; >=90% legible-active recall, no unsupported confident actives, >=80% correct SKU identity and no overconfident misses. Reviewer-signed safety/therapeutic rules for clinical output. See test scripts. Until these gates pass, public claims of analysed compatibility/safety are disabled or marked unknown.
+
+**Social artifacts:** My Rota, Mix verdict, Day 3, Day 7 and Friend Streak have share destinations and privacy previews; product names excluded by default. Friend profile shows behavioural metadata, not products/pregnancy/prescription context.
+
+**Core flow:** Understand → Plan → Do → Continue → Spread. Week-seven? No: seven-day close → quick skin-feel reflection → next seven-day rota. Do not automatically increase retinoid dose/frequency solely from self-reported comfort.
+
+Older "current prototype" and "next sequence" notes below describe the initial scaffold and are superseded when inconsistent with this release authority.
+
+
 You are building **myrota**, a lightweight skincare routine PWA.
 
 ## Product north star
@@ -148,8 +174,8 @@ Keep private context such as pregnancy/Rx flags out of share payloads.
 
 The current invite route is visual only. Make it real:
 
-- create invite server-side
-- invite has token, inviter ID, status, expiry
+- create reusable opaque inviter link server-side
+- separate join records for each recipient; invite tokens can support WhatsApp groups and Status
 - invitee can accept anonymously
 - invitee adds 1+ product and creates their own rota
 - friend streak links two users but never copies products or context
@@ -163,7 +189,7 @@ Implement install UX only after the core persisted loop works.
 - Android: use install prompt when available
 - iOS: clear Add to Home Screen education
 - install prompt belongs after rota reveal/start-streak value
-- push/reminders only after install and explicit permission
+- iOS: push only after Home Screen install and explicit permission; Android: test browser push after permission, installation not always required
 - do not block starting a streak on signup or install
 
 ### 6. Account claim
@@ -174,7 +200,7 @@ After first completed session, test:
 
 **Protect your streak**
 
-- Google / Apple / email code later
+- Google / Apple / email six-digit code for pilot (optional claim after value)
 - claiming must preserve same Supabase user/data
 - never make account creation a precondition for seeing a rota
 
@@ -213,7 +239,7 @@ Do not optimise raw signup count over activated users.
 
 In parallel with code:
 
-- benchmark 100 products actually found on Lagos/Dubai shelves
+- first pass the 30-real-label extraction gate (see docs/INGESTION_BENCHMARK.md), then extend to 100 Lagos/Dubai products
 - benchmark competitor recognition and advice quality
 - prioritise local/grey-import products that incumbents miss
 - represent product confidence explicitly
