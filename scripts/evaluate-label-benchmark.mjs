@@ -31,6 +31,7 @@ let notRecoverable = 0;
 let invalid = 0;
 let measured = 0;
 let latency = 0;
+const latencies = [];
 let cost = 0;
 const issues = [];
 const seenIds = new Set();
@@ -75,10 +76,16 @@ for (const s of samples) {
   if (Number.isFinite(s.latency_ms) && Number.isFinite(s.provider_cost_usd)) {
     measured++;
     latency += s.latency_ms;
+    latencies.push(s.latency_ms);
     cost += s.provider_cost_usd;
   }
 }
 
+latencies.sort((a, b) => a - b);
+function percentile(sorted, fraction) {
+  if (!sorted.length) return null;
+  return sorted[Math.ceil(fraction * sorted.length) - 1];
+}
 const count = samples.length;
 const recall = totalGold ? foundGold / totalGold : null;
 const identityRate = count ? identitiesCorrect / count : 0;
@@ -107,6 +114,8 @@ const result = {
     invalid,
     measuredCount: measured,
     meanLatencyMs: measured ? Math.round(latency / measured) : null,
+    medianLatencyMs: percentile(latencies, 0.5),
+    p95LatencyMs: percentile(latencies, 0.95),
     totalModelCostUsd: measured ? cost : null
   },
   issues: issues.slice(0, 100)
