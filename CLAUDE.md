@@ -21,7 +21,7 @@ The **October 16 private 10-user pilot** is the delivery target. Read these befo
 
 **Social artifacts:** My Rota, Mix verdict, Day 3, Day 7 and Friend Streak have share destinations and privacy previews; product names excluded by default. Friend profile shows behavioural metadata, not products/pregnancy/prescription context.
 
-**Core flow:** Understand → Plan → Do → Continue → Spread. Week-seven? No: seven-day close → quick skin-feel reflection → next seven-day rota. Do not automatically increase retinoid dose/frequency solely from self-reported comfort.
+**Core flow:** Understand → Plan → Do → Continue → Spread. Day seven: rota completes → quick skin-feel reflection → next seven-day rota. Do not automatically increase retinoid dose/frequency solely from self-reported comfort.
 
 Older "current prototype" and "next sequence" notes below describe the initial scaffold and are superseded when inconsistent with this release authority.
 
