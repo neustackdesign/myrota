@@ -33,6 +33,36 @@ export interface AuthFactoryOptions {
   }) => Promise<void>;
 }
 
+
+/**
+ * Better Auth handles its own API failures, so the outer Next route catch is
+ * insufficient for diagnosing anonymous sign-in failures. Keep the exception
+ * inside Workers Logs, NEVER in the HTTP response.
+ */
+function reportAuthFailure(error: unknown): void {
+  const e = error instanceof Error ? error : new Error("Unknown auth error");
+  // SQL exceptions may include user input, credentials or cookies. Do not emit
+  // free-form SQL or error stacks into persistent logs.
+  const raw = e.message;
+  const category = /no such table|no such column|SQLITE|D1_ERROR|database/i.test(raw)
+    ? "database"
+    : /origin|csrf|trusted|host/i.test(raw)
+      ? "origin-or-csrf"
+      : /secret|session|cookie|sign/i.test(raw)
+        ? "session-or-secret"
+        : "other";
+  console.error("[myrota.auth.internal]", {
+    name: e.name.slice(0, 80),
+    category,
+    // Whitelisted error patterns only, not raw SQL or user data.
+    hint: /no such column/i.test(raw) ? "missing-column"
+      : /no such table/i.test(raw) ? "missing-table"
+      : /constraint failed|UNIQUE constraint/i.test(raw) ? "constraint"
+      : /not implemented|unsupported/i.test(raw) ? "unsupported"
+      : "inspect-local-repro",
+  });
+}
+
 export function createMyrotaAuth(options: AuthFactoryOptions) {
   if (!options.secret || options.secret.length < 32) {
     throw new Error("Better Auth requires a strong server secret");
@@ -46,6 +76,21 @@ export function createMyrotaAuth(options: AuthFactoryOptions) {
   }
 
   return betterAuth({
+    onAPIError: {
+      onError: (error) => reportAuthFailure(error),
+    },
+    logger: {
+      level: "error",
+      disabled: false,
+      // Capture internal Better Auth errors without storing arbitrary
+      // arguments which may contain credentials or request payloads.
+      log: (level, _message, ...args) => {
+        if (level === "error") {
+          const error = args.find((arg) => arg instanceof Error);
+          reportAuthFailure(error ?? new Error("Better Auth reported an error"));
+        }
+      },
+    },
     database: options.db,
     secret: options.secret,
     baseURL: options.appUrl,
