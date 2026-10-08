@@ -12,7 +12,7 @@ async function sendBrevoOtp(event: {
   otp: string;
   type: "sign-in" | "email-verification" | "forget-password" | "change-email";
 }) {
-  const e = bindings();
+  const e = await bindings();
   if (!e.BREVO_API_KEY || !e.BREVO_SENDER_EMAIL) {
     throw new Error("Email OTP is not configured");
   }
@@ -46,8 +46,8 @@ async function mergeNotYetEnabled() {
   throw new Error("Account claim merge is not enabled until the verified merge transaction is deployed");
 }
 
-export function runtimeAuth(request: Request) {
-  const e = bindings();
+export async function runtimeAuth(request: Request) {
+  const e = await bindings();
   if (!e.DB) throw new Error("D1 binding missing");
   if (!e.BETTER_AUTH_SECRET || e.BETTER_AUTH_SECRET.length < 32) {
     throw new Error("Better Auth secret is not configured");
