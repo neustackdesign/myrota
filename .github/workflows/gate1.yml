@@ -2,7 +2,7 @@ name: Cloudflare Gate 1 preflight
 
 on:
   push:
-    branches: [infra/cloudflare-gate1]
+    branches: [infra/cloudflare-gate1, integrate/cloudflare-product-v1]
   workflow_dispatch:
 
 permissions:
@@ -32,6 +32,9 @@ jobs:
 
       - name: Account-merge isolation tests
         run: npm run test:merge
+
+      - name: UI and core product domain scenarios
+        run: npm run test:domain
 
       - name: Generate Better Auth SQLite schema
         run: npm run auth:schema
