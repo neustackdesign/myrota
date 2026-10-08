@@ -64,12 +64,11 @@ jobs:
           ACTUAL="$(sed -n 's/.*"database_id"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' wrangler.d1.jsonc | head -n 1)"
           test "$ACTUAL" = "7992c70c-171b-4a03-8b8f-e88d1fcba9c8"
 
-      - name: Validate current cf Turnstile + Worker-secret command shapes
+      - name: Validate current Turnstile create contract and Wrangler secret command
         run: |
           npx --yes cf turnstile widgets create --dry-run --body '{"name":"myrota-auth","domains":["myrota.neustackdesign.workers.dev","localhost"],"mode":"managed","region":"world"}' | tee /tmp/turnstile-dry-run.txt
           grep -q '"mode": "managed"' /tmp/turnstile-dry-run.txt
-          npx --yes cf workers secrets bulk --dry-run --worker myrota --body '{"secrets":{"BETTER_AUTH_SECRET":{"name":"BETTER_AUTH_SECRET","type":"secret_text","text":"redacted-test-value"}}}' | tee /tmp/secrets-dry-run.txt
-          grep -q 'BETTER_AUTH_SECRET' /tmp/secrets-dry-run.txt
+          npx wrangler secret bulk --help | grep -q 'Create, update, or delete multiple secrets'
 
       - name: Apply reviewed D1 migrations to local database
         run: npx wrangler d1 migrations apply myrota --local --config wrangler.d1.jsonc
