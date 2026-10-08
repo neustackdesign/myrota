@@ -12,7 +12,8 @@
     {
       "binding": "DB",
       "database_name": "myrota",
-      "database_id": "7992c70c-171b-4a03-8b8f-e88d1fcba9c8"
+      "database_id": "7992c70c-171b-4a03-8b8f-e88d1fcba9c8",
+      "migrations_dir": "db/migrations"
     }
   ]
 }
