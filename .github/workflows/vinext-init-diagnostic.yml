@@ -1,0 +1,38 @@
+name: Vinext current init diagnostic
+
+on:
+  push:
+    branches: [infra/cloudflare-gate1]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  init-shape:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Copy repo and run current Vinext Cloudflare init in isolation
+        run: |
+          set -euxo pipefail
+          work="$(mktemp -d)"
+          cp -a . "$work/app"
+          cd "$work/app"
+          rm -f wrangler.json wrangler.jsonc cloudflare.config.ts vite.config.ts package-lock.json
+          npm install --package-lock=false
+          npx --yes vinext init --skip-check --platform=cloudflare --force
+          echo '=== PACKAGE ==='
+          cat package.json
+          echo '=== VITE CONFIG ==='
+          cat vite.config.ts
+          echo '=== CLOUDFLARE CONFIG ==='
+          cat cloudflare.config.ts
+          echo '=== WRANGLER FILES ==='
+          find . -maxdepth 2 -iname 'wrangler*' -print -exec sh -c 'echo --- "$1"; cat "$1"' _ {} \;
+          echo '=== CF/VINEXT DEPS ==='
+          npm ls cf @cloudflare/vite-plugin @vinext/cloudflare vinext --depth=0 || true
