@@ -105,6 +105,16 @@ export function createHttpRepository(options: HttpRepositoryOptions = {}): RotaR
     await sessionPromise;
   }
 
+  /** A visitor without a session simply has no data yet: reads return empty, never an error. */
+  async function readOrEmpty<T>(path: string, empty: () => T): Promise<T> {
+    try {
+      return await request<T>("GET", path);
+    } catch (error) {
+      if (error instanceof ApiError && error.kind === "unauthorized" && !hasSession) return empty();
+      throw error;
+    }
+  }
+
   const write = async <T>(method: string, path: string, body?: unknown) => {
     await ensureSession();
     return request<T>(method, path, body);
@@ -125,7 +135,7 @@ export function createHttpRepository(options: HttpRepositoryOptions = {}): RotaR
     },
     updateDisplayName: (displayName) => write("PATCH", "/api/me", { displayName }),
 
-    shelf: () => request("GET", "/api/shelf"),
+    shelf: () => readOrEmpty("/api/shelf", () => ({ products: [] })),
     addProduct: (draft: ProductDraft) => write("POST", "/api/shelf", { draft }),
     patchProduct: async (id: string, patch: PatchShelfRequest) =>
       (await write<{ product: ShelfProduct }>("PATCH", `/api/shelf/${encodeURIComponent(id)}`, patch)).product,
@@ -154,7 +164,15 @@ export function createHttpRepository(options: HttpRepositoryOptions = {}): RotaR
         throw error;
       }
     },
-    today: () => request("GET", "/api/today"),
+    today: () =>
+      readOrEmpty("/api/today", () => ({
+        serverNow: new Date().toISOString(),
+        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        rota: null,
+        rotas: [],
+        records: [],
+        friends: [],
+      })),
     complete: (req) => write("POST", "/api/completions", req),
     rescue: (rotaId, req) => write("POST", `/api/rotas/${encodeURIComponent(rotaId)}/rescue`, req),
     declineRescue: (rotaId, req) => write("POST", `/api/rotas/${encodeURIComponent(rotaId)}/rescue/decline`, req),
@@ -165,7 +183,7 @@ export function createHttpRepository(options: HttpRepositoryOptions = {}): RotaR
     createInvite: () => write("POST", "/api/invites", {}),
     invitePreview: (token) => request("GET", `/api/invites/${encodeURIComponent(token)}`),
     acceptInvite: (token) => write("POST", `/api/invites/${encodeURIComponent(token)}/accept`, {}),
-    friends: () => request("GET", "/api/friends"),
+    friends: () => readOrEmpty("/api/friends", () => ({ friends: [], inviteToken: null })),
     markFriendSeen: (pairId) => write("POST", `/api/friends/${encodeURIComponent(pairId)}/seen`, {}),
 
     share: (req) => write("POST", "/api/share", req),

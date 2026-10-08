@@ -31,6 +31,10 @@ export interface FlowState {
   scanFor: ScanFor;
   draft: ExtractionCandidate | null;
   draftMethod: "scan" | "gallery" | "paste" | null;
+  /** Reveal note returned with the new rota (derived from the real verdict and the real plan). */
+  mixNote: string | null;
+  /** Set when the rota was built from an invite and the pair was created. */
+  pairedWith: string | null;
 }
 
 const initial: FlowState = {
@@ -44,6 +48,8 @@ const initial: FlowState = {
   scanFor: "add",
   draft: null,
   draftMethod: null,
+  mixNote: null,
+  pairedWith: null,
 };
 
 const FlowContext = createContext<{ flow: FlowState; update: (patch: Partial<FlowState>) => void; reset: () => void } | null>(null);

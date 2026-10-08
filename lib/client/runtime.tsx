@@ -3,7 +3,8 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createHttpRepository } from "../api/http-repository";
 import type { RotaRepository } from "../api/repository";
-import { createDemoRepository, DEMO_SCENARIOS, type DemoScenario } from "../demo/demo-repository";
+import { createDemoRepository, DEMO_ACCEPTED, DEMO_SCENARIOS, type DemoScenario } from "../demo/demo-repository";
+import { PRODUCTION_ACCEPTED, type AcceptedStatuses } from "../domain/types";
 import { loadTurnstileToken } from "./turnstile";
 
 /**
@@ -98,4 +99,9 @@ export function useResource<T>(loader: (repo: RotaRepository) => Promise<T>, dep
 export function newIdempotencyKey(prefix: string) {
   const rand = typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : Math.random().toString(36).slice(2);
   return `${prefix}:${rand}`;
+}
+
+/** Rule statuses this runtime trusts: production = reviewed only; demo adds explicit demo fixtures. */
+export function useAccepted(): AcceptedStatuses {
+  return useRepository().mode === "demo" ? DEMO_ACCEPTED : PRODUCTION_ACCEPTED;
 }

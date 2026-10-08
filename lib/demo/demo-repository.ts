@@ -287,6 +287,7 @@ export function createDemoRepository(scenario: DemoScenario = "fresh"): RotaRepo
   const now = () => new Date(base + (Date.now() - t0)).toISOString();
   const state = scenarioState(scenario, now());
 
+  const createdByKey = new Map<string, { rota: RotaSnapshot; mixNote: string | null }>();
   const current = () => state.history.rotas.find((r) => r.id === state.history.currentRotaId) ?? null;
   const replaceRota = (rota: RotaSnapshot) => {
     state.history = { ...state.history, rotas: state.history.rotas.map((r) => (r.id === rota.id ? rota : r)) };
@@ -423,6 +424,8 @@ export function createDemoRepository(scenario: DemoScenario = "fresh"): RotaRepo
     },
     async createRota(req) {
       await wait(300);
+      const replay = createdByKey.get(req.idempotencyKey);
+      if (replay) return clone(replay);
       const t = now();
       const startDate = skincareDateAt(t, DEMO_TZ);
       const prev = current();
@@ -435,6 +438,7 @@ export function createDemoRepository(scenario: DemoScenario = "fresh"): RotaRepo
         const result = evaluatePair(subjectFor(req.mixPair.a), subjectFor(req.mixPair.b), DEMO_RULES, DEMO_ACCEPTED);
         if (pa && pb) mixNote = mixNoteForRota(rota, result, { id: pa.id, name: pa.name }, { id: pb.id, name: pb.name });
       }
+      createdByKey.set(req.idempotencyKey, { rota: clone(rota), mixNote });
       return { rota: clone(rota), mixNote };
     },
     async currentRota() {
