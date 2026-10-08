@@ -1,0 +1,45 @@
+name: Cloudflare Gate 1 preflight
+
+on:
+  push:
+    branches: [infra/cloudflare-gate1]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Install Node dependencies
+        run: npm install
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Existing Next.js build (must remain green)
+        run: npm run build
+
+      - name: Benchmark evaluator tests
+        run: npm run test:benchmark
+
+      - name: Generate D1 SQLite schema migrations
+        run: npm run db:generate
+
+      - name: Save generated D1 schema migration for review
+        uses: actions/upload-artifact@v4
+        with:
+          name: d1-gate1-generated-migrations
+          path: db/migrations/
+          retention-days: 5
+
+      - name: Vinext compatibility probe (beta tool — output is diagnostic)
+        continue-on-error: true
+        run: npx --yes vinext check
