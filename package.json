@@ -14,8 +14,8 @@
     "gate1:vinext:check": "vinext check",
     "dev:vinext": "vite dev",
     "build:vinext": "vite build",
-    "preview:vinext": "vite preview",
-    "deploy:cloudflare": "npx @vinext/cloudflare deploy",
+    "preview:vinext": "npm run build:vinext && vite preview",
+    "deploy:cloudflare": "npm run build:vinext && npx wrangler deploy",
     "test:merge": "node --experimental-strip-types --test tests/claim-merge.test.mjs",
     "auth:schema": "npx auth@1.6.0 generate --adapter drizzle --dialect sqlite --config ./lib/server/auth-schema-config.ts --output ./db/auth-schema.ts --yes"
   },
