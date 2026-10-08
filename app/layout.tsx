@@ -5,6 +5,7 @@ import { DemoBar, ToastProvider } from "@/components/ui/primitives";
 import { FlowProvider } from "@/lib/client/flow";
 import { RuntimeProvider } from "@/lib/client/runtime";
 import { PUBLIC_MARKETING } from "@/lib/marketing/content";
+import { PHOTO_ASSETS } from "@/lib/assets/manifest";
 import "./globals.css";
 
 const faculty = Faculty_Glyphic({ weight: "400", subsets: ["latin"], variable: "--font-faculty-glyphic", display: "swap" });
@@ -17,6 +18,19 @@ export const metadata: Metadata = {
   applicationName: PUBLIC_MARKETING.seo.applicationName,
   icons: { icon: "/icons/icon-192.png", apple: "/icons/apple-touch-icon.png" },
   appleWebApp: { capable: true, title: "myrota", statusBarStyle: "default" },
+  openGraph: {
+    type: "website",
+    siteName: "myrota",
+    title: PUBLIC_MARKETING.seo.title,
+    description: PUBLIC_MARKETING.seo.description,
+    images: PHOTO_ASSETS.ogImage.src ? [{ url: PHOTO_ASSETS.ogImage.src, width: 1200, height: 630, alt: "myrota skincare routine" }] : [],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: PUBLIC_MARKETING.seo.title,
+    description: PUBLIC_MARKETING.seo.description,
+    images: PHOTO_ASSETS.ogImage.src ? [PHOTO_ASSETS.ogImage.src] : [],
+  },
 };
 
 export const viewport: Viewport = {
