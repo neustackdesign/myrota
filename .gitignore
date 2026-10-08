@@ -12,3 +12,6 @@ coverage
 .wrangler
 .dev.vars*
 dist
+.cloudflare
+.cloudflare/
+dist/
