@@ -11,7 +11,11 @@
     "test:benchmark": "node --test tests/ingestion-benchmark.test.mjs",
     "db:generate": "drizzle-kit generate",
     "db:check": "drizzle-kit check",
-    "gate1:vinext:check": "vinext check"
+    "gate1:vinext:check": "vinext check",
+    "dev:vinext": "vite dev",
+    "build:vinext": "vite build",
+    "preview:vinext": "vite preview",
+    "deploy:cloudflare": "npx @vinext/cloudflare deploy"
   },
   "dependencies": {
     "next": "16.3.8",
@@ -24,6 +28,11 @@
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "typescript": "^5.9.0",
-    "drizzle-kit": "^0.31.0"
-  }
+    "drizzle-kit": "^0.31.0",
+    "vinext": "latest",
+    "vite": "latest",
+    "@cloudflare/vite-plugin": "latest",
+    "wrangler": "latest"
+  },
+  "type": "module"
 }
