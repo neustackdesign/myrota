@@ -1,7 +1,7 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "myrota",
-  "compatibility_date": "2026-10-08",
+  "compatibility_date": "2026-09-28",
   "compatibility_flags": [
     "nodejs_compat"
   ],
