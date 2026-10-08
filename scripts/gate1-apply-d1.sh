@@ -11,7 +11,7 @@ if [[ "$branch" != "$EXPECTED_BRANCH" ]]; then
   exit 2
 fi
 
-actual_id="$(node -e 'const fs=require("fs"); const s=fs.readFileSync("wrangler.jsonc","utf8").replace(/\\/\\/.*$/gm,""); const c=JSON.parse(s); process.stdout.write(c.d1_databases?.find(x=>x.database_name==="myrota")?.database_id||"")')"
+actual_id="$(sed -n 's/.*"database_id"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' wrangler.jsonc | head -n 1)"
 if [[ "$actual_id" != "$EXPECTED_DB_ID" ]]; then
   echo "Refusing remote migration: myrota D1 UUID mismatch." >&2
   echo "Expected: $EXPECTED_DB_ID" >&2
