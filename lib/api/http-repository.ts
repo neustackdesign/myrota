@@ -38,7 +38,9 @@ const statusKind = (status: number): ApiErrorKind =>
             ? "validation"
             : status === 429
               ? "rate_limited"
-              : status === 502 || status === 503 || status === 504
+              : status === 501
+                ? "not_configured"
+                : status === 502 || status === 503 || status === 504
                 ? "unavailable"
                 : "server";
 

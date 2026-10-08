@@ -173,7 +173,7 @@ img { max-width: 100%; display: block; }
 .card--dusk { background: var(--dusk); color: var(--porcelain); }
 .card--ebony { background: var(--ebony); color: var(--porcelain); }
 .divider-list > * + * { border-top: 1px solid var(--hairline); }
-.plate { background: var(--porcelain); border-radius: 14px; padding: 10px 12px; }
+.plate { color: var(--ebony); background: var(--porcelain); border-radius: 14px; padding: 10px 12px; }
 
 /* Grain: spray-paint fields (approximation of Brand v4 <Grain> presets — source component not supplied). */
 .grain { position: relative; isolation: isolate; overflow: hidden; }
@@ -210,7 +210,7 @@ img { max-width: 100%; display: block; }
 .chip--unreadable { background: transparent; border-style: dashed; border-color: var(--sienna); color: var(--umber); }
 .chip--corrected { background: var(--pearl); border-color: var(--ebony); }
 .chip--unknown { border: 1.5px dashed var(--sienna); background: var(--porcelain); }
-.chip--pick { background: var(--shell); border-color: var(--shell); padding: 5px 10px 5px 5px; min-height: 36px; font-size: 12px; }
+.chip--pick { white-space: nowrap; flex: none; background: var(--shell); border-color: var(--shell); padding: 5px 10px 5px 5px; min-height: 36px; font-size: 12px; }
 .chip--pick.chip--unknown { background: var(--porcelain); border-color: var(--sienna); }
 .chip--pick .x { color: var(--sienna); }
 .chip-row { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -289,7 +289,7 @@ img { max-width: 100%; display: block; }
 .note--shell { background: var(--shell); }
 .note--pearl { background: var(--pearl); }
 .note--sienna { background: var(--porcelain); border: 1.5px dashed var(--sienna); }
-.callout-dashed { display: flex; gap: 12px; align-items: center; background: var(--pearl); border: 1.5px dashed var(--sienna); border-radius: 18px; padding: 12px 14px; text-align: left; width: 100%; }
+.callout-dashed { text-decoration: none; color: var(--ebony); display: flex; gap: 12px; align-items: center; background: var(--pearl); border: 1.5px dashed var(--sienna); border-radius: 18px; padding: 12px 14px; text-align: left; width: 100%; }
 
 /* ------------------------------------------------------------------ Rota ring + week strip */
 .ring-disc { position: relative; flex: none; display: grid; place-items: center; border-radius: 50%; background: var(--porcelain); color: var(--ebony); box-shadow: 0 0 0 1.5px var(--track); }
@@ -304,7 +304,7 @@ img { max-width: 100%; display: block; }
 .week-strip { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
 .day-btn { display: flex; flex-direction: column; align-items: center; gap: 4px; min-height: 44px; min-width: 0; background: none; border: 0; padding: 0; }
 .day-btn__l { font-size: 11px; font-weight: 600; }
-.dot { width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--honey); background: transparent; }
+.dot { width: 20px; height: 20px; flex: none; border-radius: 50%; border: 2px solid var(--honey); background: transparent; }
 .dot--done { background: var(--d, var(--almond)); border-color: var(--d, var(--almond)); }
 .dot--recovery { background: var(--sea-glass); border-color: var(--tide); }
 .dot--rescued { background: var(--sea-glass); border-color: var(--tide); border-style: dotted; box-shadow: inset 0 0 0 2px var(--porcelain); }
@@ -357,7 +357,7 @@ img { max-width: 100%; display: block; }
   background: var(--porcelain); border-top: 1px solid var(--hairline);
 }
 .tab { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; min-height: 52px; justify-content: center; font-size: 11px; font-weight: 600; color: var(--sienna); text-decoration: none; }
-.tab[aria-current="page"] { color: var(--ebony); }
+.tab[aria-current="page"], .tab:hover { color: var(--ebony); }
 @media (min-width: 900px) { .tabbar { bottom: 24px; border-radius: 0 0 32px 32px; } }
 
 /* ------------------------------------------------------------------ sheet + toast */
@@ -384,7 +384,7 @@ img { max-width: 100%; display: block; }
 .state-block--error { border: 1.5px dashed var(--sienna); }
 .skeleton { border-radius: 14px; background: linear-gradient(90deg, var(--shell) 0%, var(--pearl) 50%, var(--shell) 100%); background-size: 200% 100%; animation: shimmer 1.4s ease infinite; }
 @keyframes shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
-.demo-bar { position: sticky; top: 0; z-index: 30; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; background: var(--ebony); color: var(--porcelain); padding: 6px 12px; font-size: 12px; }
+.demo-bar { position: relative; z-index: 30; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; background: var(--ebony); color: var(--porcelain); padding: 6px 12px; font-size: 12px; }
 .demo-bar select { background: var(--porcelain); color: var(--ebony); border-radius: 8px; border: 0; padding: 4px 6px; font-size: 12px; min-height: 32px; max-width: 100%; }
 .demo-bar b { font-family: var(--font-mono); letter-spacing: .06em; font-weight: 500; }
 
@@ -413,3 +413,11 @@ img { max-width: 100%; display: block; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 1ms !important; animation-iteration-count: 1 !important; transition-duration: 1ms !important; scroll-behavior: auto !important; }
 }
+
+/* Porcelain plates inside dark regions keep light-ground text colours (4.5:1). */
+.on-dark :is(.friend-pair, .session__steps, .card:not(.card--dusk):not(.card--lagoon):not(.card--ebony), .sheet, .plate) .t-muted { color: var(--umber); }
+.on-dark :is(.friend-pair, .card:not(.card--dusk), .sheet) .btn--text { color: var(--sea-glass-ink); text-decoration: none; }
+
+.photo-slot--ring .photo-slot__missing { justify-content: flex-start; padding-right: 24px; }
+
+@media (max-width: 359px) { .dot { width: 15px; height: 15px; } .today-head .ring-disc { width: 120px !important; height: 120px !important; } .today-head .ring-disc svg { width: 110px; height: 110px; } .today-head .ring-num { font-size: 38px !important; } }

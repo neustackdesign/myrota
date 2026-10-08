@@ -65,7 +65,7 @@ export default function WeekCompletePage() {
     <div className="app-frame app-frame--pearl">
       <main id="main" className="app-main" style={{ minHeight: "100dvh" }}>
         <section className={`grain ${full ? "grain--sunrise" : "grain--rinse"}`} style={{ position: "relative", padding: "calc(40px + env(safe-area-inset-top)) 16px 0", height: full ? 360 : 220 }}>
-          {full ? <PhotoSlot asset="milestone" style={{ height: "100%", width: "100%" }} /> : null}
+          {full ? <PhotoSlot asset="milestone" className="photo-slot--ring" style={{ height: "100%", width: "100%" }} /> : null}
           <div className="ring-disc" style={{ position: "absolute", right: 26, bottom: -56, width: 132, height: 132, boxShadow: "0 0 0 2px #2A1911", zIndex: 2 }} role="img" aria-label={`${view.streak.continuity}-day streak`}>
             <RotaRing segments={segs} size={120} strokeWidth={12} />
             <div className="ring-centre">

@@ -3,7 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createHttpRepository } from "../api/http-repository";
 import type { RotaRepository } from "../api/repository";
-import { createDemoRepository, DEMO_ACCEPTED, DEMO_SCENARIOS, type DemoScenario } from "../demo/demo-repository";
+import { DEMO_SCENARIOS, type DemoScenario } from "../demo/scenarios";
 import { PRODUCTION_ACCEPTED, type AcceptedStatuses } from "../domain/types";
 import { loadTurnstileToken } from "./turnstile";
 
@@ -13,6 +13,16 @@ import { loadTurnstileToken } from "./turnstile";
  * there is no automatic fallback to fixtures or browser storage.
  */
 export const DEMO_MODE = process.env.NEXT_PUBLIC_MYROTA_DEMO === "1";
+
+/** Demo modules are required only behind the build-time flag, so production bundles contain no fixtures. */
+const demoModule: typeof import("../demo/demo-repository") | null =
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  process.env.NEXT_PUBLIC_MYROTA_DEMO === "1" ? require("../demo/demo-repository") : null;
+function demoRepository(scenario: DemoScenario): RotaRepository {
+  if (!demoModule) throw new Error("Demo repository is not available in this build");
+  return demoModule.createDemoRepository(scenario);
+}
+const DEMO_ACCEPTED: AcceptedStatuses = ["reviewed", "demo_fixture"];
 
 interface RuntimeValue {
   repo: RotaRepository;
@@ -31,7 +41,7 @@ export function RuntimeProvider({ children }: { children: ReactNode }) {
   const [scenario] = useState<DemoScenario | null>(() => (DEMO_MODE ? scenarioFromUrl() : null));
   const value = useMemo<RuntimeValue>(
     () => ({
-      repo: DEMO_MODE ? createDemoRepository(scenario ?? "fresh") : createHttpRepository({ captchaToken: loadTurnstileToken }),
+      repo: DEMO_MODE ? demoRepository(scenario ?? "fresh") : createHttpRepository({ captchaToken: loadTurnstileToken }),
       demoScenario: scenario,
     }),
     [scenario],

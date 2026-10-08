@@ -89,6 +89,7 @@ export type ApiErrorKind =
   | "conflict"
   | "validation"
   | "rate_limited"
+  | "not_configured"
   | "server";
 
 export class ApiError extends Error {
@@ -118,6 +119,8 @@ export function apiErrorMessage(error: unknown): string {
         return "Something changed in another tab or device. Refresh to see the latest.";
       case "validation":
         return error.message || "That didn't look right. Check and try again.";
+      case "not_configured":
+        return error.message;
       case "not_found":
         return "We couldn't find that.";
       default:

@@ -28,6 +28,13 @@ function Scan() {
   const stream = useRef<MediaStream | null>(null);
   const galleryRef = useRef<HTMLInputElement>(null);
 
+  // DEMO only: ?case=verified|flag|alert|partial picks the simulated label so every Review state can be shown.
+  useEffect(() => {
+    const c = params.get("case");
+    const demoRepo = repo as typeof repo & { setScanCase?: (c: "verified" | "flag" | "alert" | "partial") => void };
+    if (DEMO_MODE && c && demoRepo.setScanCase && ["verified", "flag", "alert", "partial"].includes(c)) demoRepo.setScanCase(c as "verified");
+  }, [params, repo]);
+
   const stop = useCallback(() => {
     stream.current?.getTracks().forEach((t) => t.stop());
     stream.current = null;

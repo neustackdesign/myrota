@@ -21,6 +21,7 @@ export const TEST_RULES: RuleSet = {
   pairRules: [
     { id: "T-RET-BHA", version: "1", classA: "retinoid", classB: "bha", verdict: "alternate_days", reasons: [{ heading: "Different days", body: "Test fixture." }], status: "reviewed", reviewers: [TEST_REVIEWER], evidenceRefs: ["test"] },
     { id: "T-RET-VITC", version: "1", classA: "retinoid", classB: "vitamin_c", verdict: "better_separated", reasons: [{ heading: "Different sessions", body: "Test fixture." }], status: "reviewed", reviewers: [TEST_REVIEWER], evidenceRefs: ["test"] },
+    { id: "T-BHA-VITC", version: "1", classA: "bha", classB: "vitamin_c", verdict: "better_separated", reasons: [{ heading: "Different sessions", body: "Test fixture." }], status: "reviewed", reviewers: [TEST_REVIEWER], evidenceRefs: ["test"] },
     { id: "T-NIAC-VITC", version: "1", classA: "niacinamide", classB: "vitamin_c", verdict: "fine_together", reasons: [{ heading: "Can share", body: "Test fixture." }], status: "reviewed", reviewers: [TEST_REVIEWER], evidenceRefs: ["test"] },
     { id: "T-DRAFT", version: "1", classA: "aha", classB: "niacinamide", verdict: "fine_together", reasons: [], status: "draft", reviewers: [], evidenceRefs: [] },
   ],

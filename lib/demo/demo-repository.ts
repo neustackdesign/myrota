@@ -29,36 +29,9 @@ export const DEMO_ACCEPTED: AcceptedStatuses = ["reviewed", "demo_fixture"];
 export const DEMO_TZ = "Africa/Lagos";
 const FRIEND_TZ = "Asia/Dubai";
 
-export type DemoScenario =
-  | "fresh"
-  | "today-am"
-  | "today-pm"
-  | "late-night"
-  | "missed"
-  | "rescued"
-  | "missed-last-week"
-  | "second-miss"
-  | "rest-day"
-  | "week-complete"
-  | "week-ended"
-  | "friend-joined"
-  | "flagged-shelf";
-
-export const DEMO_SCENARIOS: { id: DemoScenario; label: string }[] = [
-  { id: "fresh", label: "Fresh visitor · empty shelf" },
-  { id: "today-am", label: "Today · morning, paired" },
-  { id: "today-pm", label: "Today · evening atmosphere" },
-  { id: "late-night", label: "Late night · before 04:00" },
-  { id: "missed", label: "Yesterday missed · Rescue eligible" },
-  { id: "rescued", label: "Rescued · continuity kept" },
-  { id: "missed-last-week", label: "Day 7 missed · rescuable in week 2" },
-  { id: "second-miss", label: "Second miss · Rescue used" },
-  { id: "rest-day", label: "One-product invitee · Rest day" },
-  { id: "week-complete", label: "Day 7 · 7/7 Rota complete" },
-  { id: "week-ended", label: "Day 7 · Week ended 5/7" },
-  { id: "friend-joined", label: "Inviter · Tobi joined" },
-  { id: "flagged-shelf", label: "Shelf · safety flag + unknown" },
-];
+export type { DemoScenario } from "./scenarios";
+export { DEMO_SCENARIOS } from "./scenarios";
+import type { DemoScenario } from "./scenarios";
 
 type ScanCase = "verified" | "flag" | "alert" | "partial";
 
@@ -555,15 +528,15 @@ export function createDemoRepository(scenario: DemoScenario = "fresh"): RotaRepo
     },
     async startGoogleClaim() {
       await wait(300);
-      throw new ApiError("unavailable", "Google sign-in isn't connected in demo mode. Nothing was saved.", 503);
+      throw new ApiError("not_configured", "Google sign-in isn't connected in demo mode. Nothing was saved and your guest data is untouched.", 503);
     },
     async sendEmailCode() {
       await wait(300);
-      throw new ApiError("unavailable", "Email codes aren't connected in demo mode. Nothing was sent.", 503);
+      throw new ApiError("not_configured", "Email codes aren't connected in demo mode. Nothing was sent and your guest data is untouched.", 503);
     },
     async verifyEmailCode() {
       await wait(300);
-      throw new ApiError("unavailable", "Email sign-in isn't connected in demo mode.", 503);
+      throw new ApiError("not_configured", "Email sign-in isn't connected in demo mode.", 503);
     },
     async claimStatus() {
       return { state: "none", correlationId: null };

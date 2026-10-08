@@ -8,7 +8,7 @@ import { RotaMarker } from "@/components/brand/RotaMarker";
 import { ShareSheet } from "@/components/sheets/ShareSheet";
 import { BackButton, ErrorBlock, LoadingBlock } from "@/components/ui/primitives";
 import { useFlow } from "@/lib/client/flow";
-import { useResource } from "@/lib/client/runtime";
+import { useRepository, useResource } from "@/lib/client/runtime";
 import { VERDICT_LABEL, VERDICT_LINE, verdictTone } from "@/lib/domain/mix";
 import { ACTIVE_CLASS_LABEL } from "@/lib/domain/share";
 import type { ProductCategory } from "@/lib/domain/types";
@@ -17,6 +17,7 @@ import { COLOR } from "@/lib/ui/ring";
 export default function MixResultPage() {
   const router = useRouter();
   const { flow, update } = useFlow();
+  const repo = useRepository();
   const [share, setShare] = useState(false);
   const a = flow.mixA;
   const b = flow.mixB;
@@ -63,6 +64,9 @@ export default function MixResultPage() {
             <>
               <h1 className="t-display" style={{ fontSize: 36, lineHeight: 1 }}>{VERDICT_LABEL[res.verdict]}</h1>
               <p className="t-lede">{VERDICT_LINE[res.verdict]}</p>
+              {repo.mode === "demo" && res.basis === "reviewed_rule" ? (
+                <p className="plate t-small" style={{ margin: 0, color: COLOR.ebony }}>Demo fixture rule, not a reviewed verdict. Production shows a verdict only from pharmacist-reviewed rules.</p>
+              ) : null}
               {res.activeClasses.some((c) => c.length) ? (
                 <p className="t-small" style={{ margin: 0, opacity: 0.9 }}>
                   Confirmed actives: {res.activeClasses.map((c) => (c.length ? c.map((x) => ACTIVE_CLASS_LABEL[x]).join(" + ") : "not confirmed")).join(" · ")}

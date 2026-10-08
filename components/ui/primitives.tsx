@@ -6,7 +6,7 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState, ty
 import { RotaMarker, type MarkerName } from "@/components/brand/RotaMarker";
 import { apiErrorMessage } from "@/lib/api/repository";
 import { DEMO_MODE, useRuntime } from "@/lib/client/runtime";
-import { DEMO_SCENARIOS } from "@/lib/demo/demo-repository";
+import { DEMO_SCENARIOS } from "@/lib/demo/scenarios";
 
 // ---------------------------------------------------------------- Button
 type Variant = "primary" | "secondary" | "rescue" | "text" | "text-muted" | "quiet";

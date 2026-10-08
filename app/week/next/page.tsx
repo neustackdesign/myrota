@@ -79,7 +79,7 @@ export default function NextWeekPage() {
               setError(null);
               try {
                 await repo.nextRota({ idempotencyKey: key.current, context: readPrivateContext() ?? {} });
-                toast(`Week ${next} starts today`);
+                toast(`Week ${next} is ready`);
                 router.replace("/today");
               } catch (e) {
                 setError(e);

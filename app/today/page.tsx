@@ -13,7 +13,7 @@ import { Avatar, Button, ErrorBlock, InlineError, LoadingBlock, TabBar, useToast
 import type { TodayResponse } from "@/lib/api/contract";
 import { isStandalone } from "@/lib/client/pwa";
 import { newIdempotencyKey, useRepository, useResource } from "@/lib/client/runtime";
-import { shortLabel, weekdayOf } from "@/lib/domain/skincare-day";
+import { shortLabel, skincareDateAt, weekdayOf } from "@/lib/domain/skincare-day";
 import { buildTodayView, type TodayView } from "@/lib/domain/today";
 import type { CompletionSession, DayRecord } from "@/lib/domain/types";
 import { COLOR } from "@/lib/ui/ring";
@@ -80,7 +80,11 @@ function TodayScreen() {
   const view = useMemo(() => {
     const d = today.data;
     if (!d?.rota) return null;
-    return buildTodayView({ rota: d.rota, rotas: d.rotas.length ? d.rotas : [d.rota], records: d.records, now, timeZone: d.timeZone });
+    const rotas = d.rotas.length ? d.rotas : [d.rota];
+    const date = skincareDateAt(now, d.timeZone);
+    // Next week already planned from tomorrow: today still belongs to the previous rota.
+    const covering = rotas.find((r) => r.days.some((day) => day.skincareDate === date)) ?? d.rota;
+    return buildTodayView({ rota: covering, rotas, records: d.records, now, timeZone: d.timeZone });
   }, [today.data, now]);
 
   if (today.loading && !today.data) {
@@ -198,6 +202,12 @@ function TodayScreen() {
               </div>
             </div>
             {info ? <button type="button" className="btn btn--text" onClick={() => setInfo(null)}>OK</button> : null}
+          </div>
+        ) : null}
+        {data.rota && data.rota.id !== view.rota.id && data.rota.startDate > view.skincareDate ? (
+          <div className="banner banner--recovery" role="status">
+            <RotaMarker icon="rota" size={28} mode="colour" />
+            <span><b>Week {data.rota.weekNumber} is planned.</b> It starts {weekdayOf(data.rota.startDate)} from the same shelf, with a new Rescue.</span>
           </div>
         ) : null}
         {view.dayComplete && !offer ? (

@@ -264,10 +264,11 @@ export function buildRota(input: BuildRotaInput): RotaSnapshot {
 // Plan facts
 // ---------------------------------------------------------------------------
 
+/** Actives on some days but not every day (frequency-capped treatments). Daily actives are not treatments. */
 export function treatmentProductIds(rota: Pick<RotaSnapshot, "days">) {
   const ids = new Set<string>();
   for (const d of rota.days) for (const s of [...d.am, ...d.pm]) if (s.activeClass && d.type === "treatment") ids.add(s.productId);
-  return [...ids];
+  return [...ids].filter((id) => daysWith(rota, id).length < 7);
 }
 
 export function daysWith(rota: Pick<RotaSnapshot, "days">, productId: string) {

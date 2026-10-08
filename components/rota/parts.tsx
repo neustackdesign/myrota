@@ -269,7 +269,7 @@ export function SafetyFlagCard({ flag, productName, demo }: { flag: SafetyFlag; 
             <br />
           </>
         ) : null}
-        Rule {flag.ruleId} v{flag.ruleVersion} · {reviewers || (demo ? "Demo fixture · copy pending pharmacist review" : "Pending review")}
+        Rule {flag.ruleId} · {/^\d/.test(flag.ruleVersion) ? `v${flag.ruleVersion}` : flag.ruleVersion} · {reviewers || (demo ? "Demo fixture · copy pending pharmacist review" : "Pending review")}
       </div>
     </article>
   );

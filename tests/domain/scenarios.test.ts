@@ -126,6 +126,9 @@ test("3 · Mix→rota note reflects the real verdict and the real plan", () => {
   const rota1 = rotaFrom([ret, bha, product("Cleanser", "cleanser")]);
   assert.ok(!daysWith(rota1, ret.id).some((d) => daysWith(rota1, bha.id).includes(d)));
   assert.match(mixNoteForRota(rota1, alt, { id: ret.id, name: "Retinal" }, { id: bha.id, name: "BHA" }), /never share a day/);
+  // Shelf Check names the capped treatments, never a daily active.
+  const withVitc = rotaFrom([ret, bha, vitc]);
+  assert.match(withVitc.shelfCheck.find((o) => o.id === "separation")!.text, /^(Retinal and BHA|BHA and Retinal) are on different days/);
 
   const fine = evaluatePair(shelfToMixSubject(niac), shelfToMixSubject(vitc), TEST_RULES, REVIEWED);
   assert.equal(fine.verdict, "fine_together");
