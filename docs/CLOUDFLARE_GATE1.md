@@ -15,8 +15,8 @@
 ### A. Build feasibility
 - From repo: `npm install`, `npm run typecheck`, `npm run build` (existing Next.js control).
 - `npx vinext check` against Next.js 16; write exact output and flags.
-- On infra branch run `npx vinext init`, select Workers; commit generated `vite.config.*` / `wrangler.jsonc` / scripts and lockfile.
-- Run `npm run build:vinext`; test local `npm run dev:vinext`; `npx @vinext/cloudflare deploy` only after account authenticated.
+- On infra branch run/maintain the Vinext Worker config; commit generated/required `vite.config.*` / `wrangler.jsonc` / scripts and final integrated lockfile.
+- Run `npm run build:vinext`; test local `npm run dev:vinext`; deploy with **`npx @vinext/cloudflare deploy`**, not raw `wrangler deploy`. The Vinext command deploys the generated Cloudflare Build Output.
 - Keep `next build` and normal dev available. If Vinext fails, capture reproducible problem before evaluating Cloudflare OpenNext fallback.
 
 ### B. D1
