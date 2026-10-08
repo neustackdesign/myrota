@@ -30,6 +30,9 @@ jobs:
       - name: Benchmark evaluator tests
         run: npm run test:benchmark
 
+      - name: Account-merge isolation tests
+        run: npm run test:merge
+
       - name: Generate D1 SQLite schema migrations
         run: npm run db:generate
 
