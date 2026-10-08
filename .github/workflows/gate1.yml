@@ -56,6 +56,11 @@ jobs:
       - name: Validate guarded remote-apply script syntax
         run: bash -n scripts/gate1-apply-d1.sh
 
+      - name: Verify guarded script resolves the bound D1 UUID
+        run: |
+          ACTUAL="$(sed -n 's/.*"database_id"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' wrangler.jsonc | head -n 1)"
+          test "$ACTUAL" = "7992c70c-171b-4a03-8b8f-e88d1fcba9c8"
+
       - name: Apply reviewed D1 migrations to local database
         run: npx wrangler d1 migrations apply myrota --local
 
