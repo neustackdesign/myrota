@@ -65,7 +65,7 @@ Workers Free has a 10 ms CPU limit per invocation, plus 100k daily requests and 
 | Vinext build | PASS | [Gate 1 CI](https://github.com/neustackdesign/myrota/actions/runs/37707571740) |
 | Workers deployed | BLOCKED ON CLOUDFLARE ACCOUNT | URL |
 | D1 SQL schema generated | PASS (two tables; unapplied) | [CI migration artifact](https://github.com/neustackdesign/myrota/actions/runs/37707571740) |
-| D1 created | BLOCKED ON CLOUDFLARE ACCOUNT | database UUID |
+| D1 created | PASS | `myrota`, WEUR, database binding committed on infra branch |
 | Better Auth factory compiles | PASS (factory only; not mounted) | [Gate 1 CI](https://github.com/neustackdesign/myrota/actions/runs/37707571740) |
 | Pure account merge planner tests | PASS (6 synthetic tests; NOT real identity link) | [Gate 1 CI](https://github.com/neustackdesign/myrota/actions/runs/37707571740) |
 | Better Auth guest → new identity | NOT RUN | live integration test |
