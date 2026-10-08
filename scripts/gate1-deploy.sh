@@ -30,10 +30,10 @@ echo "== Vinext production build (DEMO explicitly off) =="
 NEXT_PUBLIC_MYROTA_DEMO=0 npm run build:vinext
 
 echo
-echo "== Deploying myrota Worker =="
+echo "== Deploying Vinext-generated myrota Worker =="
 tmp="$(mktemp)"
 trap 'rm -f "$tmp"' EXIT
-npx wrangler deploy | tee "$tmp"
+npx @vinext/cloudflare deploy | tee "$tmp"
 
 url="$(grep -Eo 'https://[^[:space:]]+\.workers\.dev[^[:space:]]*' "$tmp" | tail -n 1 | sed 's/[),]$//' || true)"
 if [[ -z "$url" ]]; then
