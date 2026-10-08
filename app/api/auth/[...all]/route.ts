@@ -16,7 +16,7 @@ function jsonError(status: number, message: string) {
 async function handle(request: Request) {
   try {
     if (request.method === "POST" && GUARDED_POSTS.some((path) => new URL(request.url).pathname === path)) {
-      const e = bindings();
+      const e = await bindings();
       if (!e.TURNSTILE_SECRET_KEY) return jsonError(503, "Account protection is not configured yet");
       const token = request.headers.get("x-captcha-response") ?? "";
       if (!token) return jsonError(400, "Verification token required");
@@ -27,7 +27,7 @@ async function handle(request: Request) {
       });
       if (!ok) return jsonError(403, "Verification failed");
     }
-    return runtimeAuth(request).handler(request);
+    return (await runtimeAuth(request)).handler(request);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Authentication unavailable";
     const expectedConfig = /not configured|not enabled|binding missing/i.test(message);
