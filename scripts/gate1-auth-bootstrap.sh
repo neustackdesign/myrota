@@ -57,17 +57,17 @@ chmod 600 "$tmp"
 BETTER_AUTH_SECRET="$better_secret" TURNSTILE_SITE_KEY="$sitekey" TURNSTILE_SECRET_KEY="$turnstile_secret" \
 node -e '
 const fs=require("fs");
-const out={
-  BETTER_AUTH_SECRET:process.env.BETTER_AUTH_SECRET,
-  TURNSTILE_SITE_KEY:process.env.TURNSTILE_SITE_KEY,
-  TURNSTILE_SECRET_KEY:process.env.TURNSTILE_SECRET_KEY
-};
+const out={secrets:{
+  BETTER_AUTH_SECRET:{name:"BETTER_AUTH_SECRET",type:"secret_text",text:process.env.BETTER_AUTH_SECRET},
+  TURNSTILE_SITE_KEY:{name:"TURNSTILE_SITE_KEY",type:"secret_text",text:process.env.TURNSTILE_SITE_KEY},
+  TURNSTILE_SECRET_KEY:{name:"TURNSTILE_SECRET_KEY",type:"secret_text",text:process.env.TURNSTILE_SECRET_KEY}
+}};
 fs.writeFileSync(process.argv[1],JSON.stringify(out));
 ' "$tmp"
 
 echo
 echo "== Install Worker secrets in one deployment =="
-npx wrangler secret bulk "$tmp" --name myrota --config wrangler.d1.jsonc
+npx --yes cf workers secrets bulk --worker myrota --file "$tmp"
 
 echo
 echo "== Verify live auth readiness =="
