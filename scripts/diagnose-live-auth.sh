@@ -58,7 +58,21 @@ for(const row of rows){
   const category=(row.match(/(?:database|origin-or-csrf|session-or-secret|other)/)||[])[0]||"unclassified";
   const hint=(row.match(/(?:missing-column|missing-table|constraint|unsupported|inspect-local-repro)/)||[])[0]||"unknown";
   const reqMethod=(row.match(/(?:GET|POST|PATCH|DELETE)/)||[])[0]||"request";
-  console.log(JSON.stringify({tag,category,hint,method:reqMethod}));
+  let technicalSummary="";
+  try {
+    const obj=JSON.parse(row);
+    const find=(value,depth=0)=>{
+      if(depth>10||value==null)return "";
+      if(Array.isArray(value)){for(const item of value){const result=find(item,depth+1);if(result)return result;}return "";}
+      if(typeof value==="object"){
+        if(typeof value.technicalSummary==="string")return value.technicalSummary;
+        for(const item of Object.values(value)){const result=find(item,depth+1);if(result)return result;}
+      }
+      return "";
+    };
+    technicalSummary=find(obj).slice(0,220);
+  } catch {}
+  console.log(JSON.stringify({tag,category,hint,method:reqMethod,technicalSummary}));
   found++;
 }
 if(!found)console.log("No tagged errors found. Confirm smoke finished after tail started and this Worker version was deployed. Do not paste raw log lines containing personal data.");
