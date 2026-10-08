@@ -5,8 +5,10 @@ export async function GET() {
   return Response.json(
     {
       providers: {
-        google: Boolean(e.GOOGLE_CLIENT_ID && e.GOOGLE_CLIENT_SECRET),
-        emailOtp: Boolean(e.BREVO_API_KEY && e.BREVO_SENDER_EMAIL),
+        // Account claim is OFF until a verified atomic guest merge exists.
+        // Presence of provider secrets does not mean a flow is safely usable.
+        google: false,
+        emailOtp: false,
         apple: false,
       },
       turnstileSiteKey: e.TURNSTILE_SITE_KEY || null,
