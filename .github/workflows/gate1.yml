@@ -39,6 +39,13 @@ jobs:
       - name: Generate D1 SQLite schema migrations
         run: npm run db:generate
 
+      - name: Print generated auth schema and SQL for review
+        run: |
+          echo '--- db/auth-schema.ts ---'
+          cat db/auth-schema.ts
+          echo '--- generated SQL ---'
+          cat db/migrations/*.sql
+
       - name: Save generated D1 schema migration for review
         uses: actions/upload-artifact@v4
         with:
