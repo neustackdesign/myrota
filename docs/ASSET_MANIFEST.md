@@ -14,7 +14,7 @@ Production pilot uses Pexels-hosted photographs with creator and source URLs rec
 | PH-04 | Story background | https://www.pexels.com/photo/7269467/ | Anete Lusina |
 | PH-05 | OG candidate | https://www.pexels.com/photo/5938589/ | Sora Shimazaki |
 
-**Caveat:** PH-05 remains a manifest candidate until connected to the Next.js metadata image route; PH-04 remains an optional share-card background, not automatically exported. Hosted images should be downloaded, optimised and self-hosted in a later asset packaging pass to avoid third-party CDN runtime dependence. Retna candidate: Salem Ochidi's dark-skin beauty portrait (https://retna.io/photos/a-nerdy-beauty-portrait-of-a-dark-skinned-model-with-beautiful-bokeh-QOPlNf); direct asset download has not been confirmed, so do not mark it as shipped.
+**Caveat:** PH-05 is now wired into Open Graph and Twitter metadata in `app/layout.tsx`, but the final branded horizontal crop must be visually tested; PH-04 remains an optional share-card background, not automatically exported. Hosted images should be downloaded, optimised and self-hosted in a later asset packaging pass to avoid third-party CDN runtime dependence. Retna candidate: Salem Ochidi's dark-skin beauty portrait (https://retna.io/photos/a-nerdy-beauty-portrait-of-a-dark-skinned-model-with-beautiful-bokeh-QOPlNf); direct asset download has not been confirmed, so do not mark it as shipped.
 
 ## 2. Brand vectors — PROVISIONAL re-draws
 
