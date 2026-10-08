@@ -85,3 +85,19 @@ Build compatibility and generated SQL are verified in GitHub Actions. Neither Cl
 - https://better-auth.com/docs/plugins/anonymous
 - https://better-auth.com/docs/plugins/email-otp
 - https://help.brevo.com/hc/en-us/articles/208580669-FAQs-What-are-the-limits-of-the-Free-plan
+
+
+## Vinext deployment correction — 8 Oct 2026
+Two first deployment attempts successfully uploaded a Worker but returned 404 at `/api/health`. Root cause was configuration drift: the repository had been hand-wired to the older Wrangler/App-Router entry path instead of running the current Vinext Cloudflare init shape.
+
+The current Vinext 1.0.1 diagnostic generated:
+- `vinext/server/fetch-handler` as the Worker entrypoint;
+- `cloudflare.config.ts` using `cf/config`;
+- `cf@1.0.0-beta.13`;
+- `@cloudflare/vite-plugin` v2 beta;
+- explicit ASSETS binding;
+- `react-server-dom-webpack` and `@vitejs/plugin-react`.
+
+Infra branch now follows that generated shape. The exact WEUR D1 UUID remains in `wrangler.d1.jsonc` solely for D1 migration/admin safety; application deployment uses typed `cloudflare.config.ts`, which binds the existing `myrota` D1 resource by name in the locked Cloudflare account.
+
+Before a third remote deploy, CI must prove the App Router handlers locally: `/api/config` must return 200 and `/api/health` must resolve to a non-404 status under Vinext preview. Do not treat successful upload as successful application routing.
