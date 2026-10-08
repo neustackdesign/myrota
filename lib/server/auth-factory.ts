@@ -59,6 +59,9 @@ export function createMyrotaAuth(options: AuthFactoryOptions) {
       : {},
     plugins: [
       anonymous({
+        // Gate 1: never let Better Auth automatically delete the guest.
+        // We explicitly retire it only after the D1 merge batch is verified.
+        disableDeleteAnonymousUser: true,
         onLinkAccount: async ({ anonymousUser, newUser }) => {
           await options.mergeGuestIntoClaimed({
             guestUserId: anonymousUser.user.id,
