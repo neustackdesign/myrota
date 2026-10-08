@@ -27,3 +27,12 @@ The Cloudflare `myrota.neustackdesign.workers.dev` deployment displays the origi
 - No “just one last step” prediction without a verified acceptance test.
 - Never swap branches in a deploy process without announcing the *exact source SHA and expected visible UI*.
 - Freeze interfaces and minimize developer shell commands; diagnose failures before telling the user to retry.
+
+
+## Update — UI preview deployment now READY
+- The user linked the existing `myrota` Vercel project under `neustackdesign-gmailcoms-projects` from the local `~/Code/myrota` checkout of `feat/product-ui-v1-2`.
+- `vercel deploy --build-env NEXT_PUBLIC_MYROTA_DEMO=1` returned **Ready in 37s** and a Preview URL. This is an actual Vercel deployment, not the Cloudflare infrastructure placeholder. Vercel Authentication is enabled for the deployment.
+- This is **deployment evidence only**, not a rendered-design audit. Do not mark Brand v4 visual parity or the six end-to-end flows passed without inspecting the actual authenticated preview.
+- Vercel connector access from this chat currently returns 404 project not found / 403 deployment list for this account/project, even though the user's owner-authenticated local Vercel CLI can access and deploy. This is a **tool-authorization mismatch**, not evidence the preview failed.
+- `--build-env NEXT_PUBLIC_MYROTA_DEMO=1` is a per-deployment build value, **not a persisted Preview environment setting**. Before automatic future branch builds, persist `NEXT_PUBLIC_MYROTA_DEMO=1` on the `feat/product-ui-v1-2` preview branch only. Production must never enable demo fixtures.
+- No PR has been merged; no integration with real Cloudflare backend has been verified. The preview must remain explicitly labelled DEMO and subject to Vercel authentication until review.
