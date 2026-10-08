@@ -131,9 +131,13 @@ jobs:
           echo
           echo '--- guest-data endpoints cannot leak without a session ---'
           shelf_code="$(curl --silent -o /tmp/shelf-no-session.json -w '%{http_code}' http://127.0.0.1:4173/api/shelf)"
-          [[ "$shelf_code" = "401" || "$shelf_code" = "503" ]]
+          test "$shelf_code" = "401"
           today_code="$(curl --silent -o /tmp/today-no-session.json -w '%{http_code}' http://127.0.0.1:4173/api/today)"
-          [[ "$today_code" = "401" || "$today_code" = "503" ]]
+          test "$today_code" = "401"
+          echo '--- guest cannot be created without a verified Turnstile token ---'
+          guest_code="$(curl --silent -o /tmp/guest-no-turnstile.json -w '%{http_code}' \
+            -H 'content-type: application/json' -d '{}' http://127.0.0.1:4173/api/auth/sign-in/anonymous)"
+          [[ "$guest_code" = "400" || "$guest_code" = "503" ]]
           echo '--- claim disabled until verified data merge ---'
           claim_code="$(curl --silent -o /tmp/claim.json -w '%{http_code}' -H 'content-type: application/json' \
             -d '{"provider":"google"}' http://127.0.0.1:4173/api/auth/sign-in/social)"
