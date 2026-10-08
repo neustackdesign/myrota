@@ -53,6 +53,9 @@ jobs:
           path: db/generated-migrations/
           retention-days: 5
 
+      - name: Validate guarded remote-apply script syntax
+        run: bash -n scripts/gate1-apply-d1.sh
+
       - name: Apply reviewed D1 migrations to local database
         run: npx wrangler d1 migrations apply myrota --local
 
