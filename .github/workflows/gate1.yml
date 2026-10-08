@@ -57,6 +57,7 @@ jobs:
         run: |
           bash -n scripts/gate1-apply-d1.sh
           bash -n scripts/gate1-deploy.sh
+          bash -n scripts/gate1-auth-bootstrap.sh
 
       - name: Verify guarded script resolves the bound D1 UUID
         run: |
