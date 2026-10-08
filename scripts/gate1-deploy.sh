@@ -33,7 +33,7 @@ echo
 echo "== Deploying Vinext-generated myrota Worker =="
 tmp="$(mktemp)"
 trap 'rm -f "$tmp"' EXIT
-npx @vinext/cloudflare deploy | tee "$tmp"
+npx --yes @vinext/cloudflare deploy | tee "$tmp"
 
 url="$(grep -Eo 'https://[^[:space:]]+\.workers\.dev[^[:space:]]*' "$tmp" | tail -n 1 | sed 's/[),]$//' || true)"
 if [[ -z "$url" ]]; then
