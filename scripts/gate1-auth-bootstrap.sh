@@ -24,7 +24,7 @@ printf '%s' "$health" | node -e '
 let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const j=JSON.parse(s);if(j.database!=="connected"||j.live!==true)process.exit(1)})'
 
 echo
-echo "== Find or create Turnstile widget =="
+echo "== Find or create Managed Turnstile widget =="
 widgets="$(npx --yes cf turnstile widgets list --filter "name:$WIDGET_NAME")"
 sitekey="$(printf '%s' "$widgets" | node -e '
 let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const a=JSON.parse(s);const w=(Array.isArray(a)?a:[]).find(x=>x.name==="myrota-auth");if(w?.sitekey)process.stdout.write(w.sitekey)})')"
@@ -32,11 +32,8 @@ turnstile_secret="$(printf '%s' "$widgets" | node -e '
 let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const a=JSON.parse(s);const w=(Array.isArray(a)?a:[]).find(x=>x.name==="myrota-auth");if(w?.secret)process.stdout.write(w.secret)})')"
 
 if [[ -z "$sitekey" ]]; then
-  created="$(npx --yes cf turnstile widgets create \
-    --name "$WIDGET_NAME" \
-    --domains myrota.neustackdesign.workers.dev \
-    --domains localhost \
-    --region world)"
+  body="$(node -e 'process.stdout.write(JSON.stringify({name:"myrota-auth",domains:["myrota.neustackdesign.workers.dev","localhost"],mode:"managed",region:"world"}))')"
+  created="$(npx --yes cf turnstile widgets create --body "$body")"
   sitekey="$(printf '%s' "$created" | node -e '
 let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const j=JSON.parse(s);if(!j.sitekey)process.exit(1);process.stdout.write(j.sitekey)})')"
   turnstile_secret="$(printf '%s' "$created" | node -e '
