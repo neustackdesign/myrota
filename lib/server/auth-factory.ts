@@ -51,7 +51,15 @@ function reportAuthFailure(error: unknown): void {
       : /secret|session|cookie|sign/i.test(raw)
         ? "session-or-secret"
         : "other";
+  // Technical clues stay only in Worker Logs and are aggressively redacted.
+  const technicalSummary = raw
+    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}/gi, "<email>")
+    .replace(/(authorization|cookie|password|secret|token|api[_ -]?key)\\s*[:=]\\s*[^\\s,;]+/gi, "$1=<redacted>")
+    .replace(/(['"`])[^'"`\\n]{1,160}\\1/g, "<quoted-value>")
+    .replace(/\\b[A-Za-z0-9_-]{48,}\\b/g, "<long-value>")
+    .slice(0, 220);
   console.error("[myrota.auth.internal]", {
+    technicalSummary,
     name: e.name.slice(0, 80),
     category,
     // Whitelisted error patterns only, not raw SQL or user data.
