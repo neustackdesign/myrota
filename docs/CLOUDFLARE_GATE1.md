@@ -114,3 +114,19 @@ Current infra branch now matches the Vinext 1.0.1 Cloudflare init shape and pass
 - compatibility date pinned to `2026-09-28`, the newest date supported by the current workerd shipped in this Vinext toolchain.
 
 The third remote deploy is therefore allowed. If it still 404s, treat it as a remote deployment/output issue, not an unverified App Router route issue.
+
+
+## First live Worker deployment — PASS
+The current Vinext 1.0.1 Cloudflare configuration is now deployed successfully at:
+`https://myrota.neustackdesign.workers.dev`
+
+Verified by the deploy script:
+- Worker upload/deploy: PASS
+- live `/api/health`: PASS
+- D1: `connected`
+- `live: true`
+- auth: `configuration-pending` (expected until Better Auth secret + Turnstile)
+- live `/api/config`: PASS, with Google/email/Apple disabled and no Turnstile site key yet
+- the deployed Worker reuses the existing dedicated WEUR `myrota` D1 database.
+
+The next Gate 1 step is authentication, not another deployment rewrite: provision Better Auth secret + Turnstile, then prove anonymous session cookie → authenticated shelf POST → authenticated shelf GET against the live D1.
