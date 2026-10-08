@@ -11,6 +11,8 @@ export interface MyrotaBindings {
   BREVO_SENDER_EMAIL?: string;
   BREVO_SENDER_NAME?: string;
   MYROTA_BASE_URL?: string;
+  /** Comma-separated exact HTTPS origins for the Vercel UI preview. No wildcard trust. */
+  MYROTA_TRUSTED_ORIGINS?: string;
 }
 
 /**
