@@ -1,4 +1,3 @@
-import { env } from "cloudflare:workers";
 import type { D1Database } from "@cloudflare/workers-types";
 
 export interface MyrotaBindings {
@@ -18,6 +17,9 @@ export interface MyrotaBindings {
  * Vinext/Workers server-only binding access. Cloudflare recommends
  * cloudflare:workers for Next route handlers, server components and actions.
  */
-export function bindings(): MyrotaBindings {
-  return env as unknown as MyrotaBindings;
+export async function bindings(): Promise<MyrotaBindings> {
+  // Lazy import keeps native Next.js builds from evaluating the Workers-only
+  // virtual module during route metadata collection. Vinext resolves it in workerd.
+  const mod = await import("cloudflare:workers");
+  return mod.env as unknown as MyrotaBindings;
 }
