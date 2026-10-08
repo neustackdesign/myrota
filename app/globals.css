@@ -421,3 +421,36 @@ img { max-width: 100%; display: block; }
 .photo-slot--ring .photo-slot__missing { justify-content: flex-start; padding-right: 24px; }
 
 @media (max-width: 359px) { .dot { width: 15px; height: 15px; } .today-head .ring-disc { width: 120px !important; height: 120px !important; } .today-head .ring-disc svg { width: 110px; height: 110px; } .today-head .ring-num { font-size: 38px !important; } }
+
+
+/* ------------------------------------------------------------------ responsive marketing landing
+ * Keep the portrait and message composed as a single editorial spread.
+ * Do not let a tall desktop viewport stretch the empty licensed-photo slot
+ * into a detached header / a second detached hero halfway down the page.
+ */
+.landing-art {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: calc(28px + env(safe-area-inset-top)) 16px 20px;
+}
+.landing-photo { width: 100%; max-height: 460px; flex: none; }
+.landing-copy {
+  padding: 24px 24px calc(24px + env(safe-area-inset-bottom));
+  justify-content: center;
+}
+@media (min-width: 900px) {
+  .landing-frame {
+    /* Cap just the marketing composition, not any in-app screen. */
+    min-height: min(calc(100dvh - 48px), 860px);
+  }
+  .landing-main { min-height: min(calc(100dvh - 48px), 860px); }
+  .landing-art { padding: 28px 20px 30px; }
+  .landing-photo {
+    flex: 1 1 auto;
+    max-height: none;
+    min-height: 0;
+    aspect-ratio: auto !important;
+  }
+  .landing-copy { padding: 40px clamp(28px, 4vw, 52px); }
+}
