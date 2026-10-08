@@ -63,6 +63,7 @@ jobs:
           bash -n scripts/gate1-auth-bootstrap.sh
           bash -n scripts/pilot-migrate-deploy.sh
           bash -n scripts/pilot-allow-preview.sh
+          bash -n scripts/diagnose-live-auth.sh
 
       - name: Verify guarded script resolves the bound D1 UUID
         run: |
