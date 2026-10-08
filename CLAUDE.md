@@ -1,297 +1,97 @@
-# Claude Code build contract
-
-## CURRENT RELEASE AUTHORITY — 8 October 2026
-
-The **October 16 private 10-user pilot** is the delivery target. Read these before making product or architecture decisions:
-- `docs/CLAUDE_DESIGN_V1_2.md` — frozen brand + corrected design/product contract
-- `docs/INGESTION_BENCHMARK.md` — 30-real-label acceptance gate; run `scripts/evaluate-label-benchmark.mjs`
-- `docs/PILOT_OCT16.md` — dated milestones and acceptance checks
-
-**Authority order:** reviewed product and safety requirements → approved Brand v4 + Claude Design v1.2 for UI → this repo's pure domain/application contracts → existing rough UI prototype. Do not transplant illustrative clinical recommendations from the Claude Design prototype.
-
-**One nonnegotiable differentiator:** add *any* owned product via scan, search, pasted ingredients or gallery; then confirm the extracted data. Every product can be on Shelf. Unknown ingredients must not be treated as confidently analysed. Source/provenance and uncertainty are explicit. Show **SafetyFlag** only for pharmacist/dermatologist-reviewed rule fixtures or separately sourced regulatory product alerts. A label scan cannot establish the absence of undeclared adulterants.
-
-**Identity:** Supabase anonymous identity at first meaningful write; cookie-backed SSR; later Google/Apple/email six-digit code **in pilot**. Ask display name before guests invite. Invite link is a reusable opaque token with separate joins/pairs; a group/Status link may bring multiple users. Paired Friend Streak advances only after both members' own eligible days complete. WhatsApp-first share and a user-initiated WhatsApp nudge are launch features; bonus Rescue and push nudge are experiments/later.
-
-**PWA:** WebKit iOS 17.2+ copies cookies on install, not IndexedDB/LocalStorage. Supabase rotated refresh tokens can still invalidate stale copied sessions. Test Safari → Home Screen app → Safari again beyond reuse leeway, plus recovery/claim UX, on real devices. Do not promise anonymous recovery without a linked credential. Android Chrome push can be browser-level where permission is supported; iOS Web Push requires Home Screen installation. Don't manufacture an "app store" CTA.
-
-**Scheduling:** 04:00 local skincare-day rollover; rest days check in; fixed treatment plan (no missed-session doubling); one Rescue per rota, including last day; preserve streak without awarding an unearned completed day; history-aware rota edits; optional swap-to-recovery when skin feels irritated. Unknown product compatibility and missing rule default to **insufficient_evidence**, never compatible.
-
-**Quality gates:** 30 consented Lagos/GCC/difficult label tests; >=90% legible-active recall, no unsupported confident actives, >=80% correct SKU identity and no overconfident misses. Reviewer-signed safety/therapeutic rules for clinical output. See test scripts. Until these gates pass, public claims of analysed compatibility/safety are disabled or marked unknown.
-
-**Social artifacts:** My Rota, Mix verdict, Day 3, Day 7 and Friend Streak have share destinations and privacy previews; product names excluded by default. Friend profile shows behavioural metadata, not products/pregnancy/prescription context.
-
-**Core flow:** Understand → Plan → Do → Continue → Spread. Day seven: rota completes → quick skin-feel reflection → next seven-day rota. Do not automatically increase retinoid dose/frequency solely from self-reported comfort.
-
-Older "current prototype" and "next sequence" notes below describe the initial scaffold and are superseded when inconsistent with this release authority.
-
-
-You are building **myrota**, a lightweight skincare routine PWA.
-
-## Product north star
-
-The MVP must prove one loop:
-
-```
-add what I own
-→ get a useful 7-day rota
-→ follow today's AM/PM plan
-→ keep a streak
-→ invite one friend
-→ friend starts their own rota
-```
-
-Do not turn this into a generic skincare encyclopaedia, ecommerce layer, feed, community, dashboard, or AI chat product.
-
-## Core JTBD
-
-1. Can these products fit together?
-2. When should I use what I already own?
-3. What am I doing unnecessarily?
-4. Can I actually stick to the routine?
-
-## V1 behaviour
-
-- Organic users are encouraged to add 3+ products.
-- Invitees may start with 1 product.
-- A rota is seven days.
-- Today has **one AM completion action and one PM completion action**. Do not require ticking every product.
-- Recovery nights count as following the plan.
-- Missed sessions do not cascade or cause catch-up dosing.
-- One **Rota Rescue** may preserve one missed day per seven-day rota.
-- A friend never copies another person's routine. They build their own rota and only share accountability.
-- WhatsApp is the primary invite/share path; use Web Share API where available and WhatsApp fallback.
-- `/mix` is an acquisition utility, not the product identity.
-- Shelf Check returns a maximum of three useful observations. No numerical score.
-
-## Explicitly out of scope
-
-Do not add any of these without a validated reason:
-
-- feeds, follows, likes, comments
-- public profiles/handles
-- leaderboards, XP, gems, levels
-- monthly calendar
-- product shopping or affiliate recommendations
-- routine score
-- progress-photo system
-- full analytics dashboard for users
-- copied friend routines
-- adaptive missed-night rescheduling
-- native apps before the PWA loop works
-
-## Current prototype
-
-The repository currently contains:
-
-- Next.js PWA shell
-- 15 provisional product fixtures
-- product/rule/rota types
-- deterministic seven-day rota generator
-- basic Mix Check
-- Shelf Check
-- AM/PM completion
-- streak calculation
-- one Rota Rescue
-- share/invite surface
-- browser storage adapter
-
-The rule matrix and product fixtures are development data, **not signed-off clinical/product data**.
-
-## Architecture constraint: native later
-
-Assume we may build iOS/Android with Expo/React Native after proving the PWA.
-
-Therefore:
-
-- keep product, rule, rota, streak and shelf logic in pure TypeScript under `lib/domain`
-- do not import Next.js, browser APIs, React, Supabase or UI concerns into `lib/domain`
-- put persistence behind a repository/service boundary
-- keep analytics event names platform-neutral
-- avoid web-only domain representations
-
-The goal is to reuse domain code and contracts, not the web UI.
-
-## Next implementation sequence
-
-### 1. Make the current app green
-
-- install dependencies
-- run `npm run typecheck`
-- run `npm run build`
-- fix every build/type error before adding features
-- commit lockfile
-
-### 2. Introduce the persistence boundary
-
-Create a small interface, e.g.
-
-```ts
-interface RotaRepository {
-  getCurrent(): Promise<AppState | null>
-  saveShelf(...)
-  saveRota(...)
-  saveCompletion(...)
-  useRescue(...)
-  createInvite(...)
-  acceptInvite(...)
-}
-```
-
-Keep the existing browser adapter as local development fallback.
-
-### 3. Connect Supabase
-
-Use current Supabase docs and CLI; do not guess commands.
-
-Target behaviour:
-
-- anonymous auth on first meaningful write
-- cookie-based SSR session
-- anonymous user can later claim identity without losing data
-- server persistence for shelf, rota, completions, invites and friend streak
-- RLS on every exposed table
-- user ownership predicates on every user-specific policy
-- no service-role key in browser code
-- use current publishable key, not legacy assumptions
-
-Create migrations with `supabase migration new ...`, then apply/verify. Do not invent migration filenames manually.
-
-Suggested entities:
-
-- product_catalogue
-- user_products
-- rotas
-- rota_days / or versioned JSON rota payload
-- completions
-- invites
-- friend_streaks
-- rule_versions
-
-Keep private context such as pregnancy/Rx flags out of share payloads.
-
-### 4. Close the real friend loop
-
-The current invite route is visual only. Make it real:
-
-- create reusable opaque inviter link server-side
-- separate join records for each recipient; invite tokens can support WhatsApp groups and Status
-- invitee can accept anonymously
-- invitee adds 1+ product and creates their own rota
-- friend streak links two users but never copies products or context
-- each person's completion is independent
-- shared state only exposes completion/streak metadata
-
-### 5. PWA activation
-
-Implement install UX only after the core persisted loop works.
-
-- Android: use install prompt when available
-- iOS: clear Add to Home Screen education
-- install prompt belongs after rota reveal/start-streak value
-- iOS: push only after Home Screen install and explicit permission; Android: test browser push after permission, installation not always required
-- do not block starting a streak on signup or install
-
-### 6. Account claim
-
-Anonymous until value.
-
-After first completed session, test:
-
-**Protect your streak**
-
-- Google / Apple / email six-digit code for pilot (optional claim after value)
-- claiming must preserve same Supabase user/data
-- never make account creation a precondition for seeing a rota
-
-## Analytics events
-
-Instrument these exact conceptual events:
-
-- landing_viewed
-- product_added
-- rota_revealed
-- streak_started
-- session_completed
-- rescue_used
-- install_prompted
-- app_installed
-- account_claimed
-- invite_sent
-- invite_opened
-- invite_accepted
-- invitee_rota_started
-
-Primary early funnel:
-
-```
-rota_revealed
-→ streak_started
-→ day_1_complete
-→ invite_sent
-→ invite_opened
-→ invitee_rota_started
-```
-
-Do not optimise raw signup count over activated users.
-
-## Product-data workstream
-
-In parallel with code:
-
-- first pass the 30-real-label extraction gate (see docs/INGESTION_BENCHMARK.md), then extend to 100 Lagos/Dubai products
-- benchmark competitor recognition and advice quality
-- prioritise local/grey-import products that incumbents miss
-- represent product confidence explicitly
-- preserve provenance
-- user corrections remain user-level until corroborated/verified
-- opaque/unrecognised products must remain unknown, not silently treated as harmless
-
-## Rule governance
-
-The domain model supports:
-
-```
-compatible | caution | alternate | avoid | insufficient_evidence
-```
-
-and reasons:
-
-```
-irritation | pregnancy | formulation | duplication | prescription | unknown
-```
-
-Every production rule eventually needs evidence/source refs and appropriate professional review. The current `DRAFT_RULES` exist only to make the prototype testable.
-
-## Design principles
-
-- mobile-first, thumb-friendly
-- visually confident, not clinical or pharmacy-like
-- plain language
-- generous whitespace
-- one dominant action per screen
-- screenshot/share-friendly milestones
-- no dark-pattern invite prompts
-- no fear-based skincare copy
-- make recovery feel intentional, not like failure
-
-## Definition of MVP success
-
-The PWA is not "done" because the screens exist.
-
-The first meaningful proof is:
-
-1. a user creates a rota from products they own
-2. returns/completes sessions
-3. sends an invite
-4. the receiver starts their own rota
-
-Measure especially:
-
-- rota reveal → streak start
-- day-1 completion
-- invite send rate
-- invite open rate
-- invite → invitee rota start
-
-The viral loop is only real if recipients activate.
+# myrota — Canonical engineering contract
+**Status:** Cloudflare-first architecture LOCKED · 8 October 2026
+**Pilot goal:** 10 real users, target 16 October 2026; *date is conditional on passed gates, not a licence to ship inaccurate skincare advice*.
+
+## Read order and authority
+1. This file: architectural and behavioural contract.
+2. `docs/CLOUDFLARE_GATE1.md`: provision/deploy checklist, pass/fail log and no-secrets rules.
+3. `docs/INGESTION_BENCHMARK.md` and `scripts/evaluate-label-benchmark.mjs`: 30 real-label evidence gate.
+4. Approved Brand Identity v4 + latest corrected MVP Prototype v1.2 + Component System: **visual UX authority**, after user supplies the final assets to Claude Code.
+5. `docs/CLAUDE_DESIGN_V1_2.md`: locked product journeys, overrides placeholder UI.
+6. Existing pure `lib/domain` contracts, but *not* unreviewed skincare facts or old streak logic.
+
+**Do not copy the demo's healthcare guidance, sample regulator alerts, fake identity screens, or its Javascript simulated timing into production.** The legacy Supabase notes in `docs/ARCHITECTURE.md` and `docs/BUILD_PLAN.md` are superseded by the cloud-native plan; both docs must be updated.
+
+## Decision: independent Cloudflare stack
+- Cloudflare Workers: Next.js 16 app initially adapted with **Vinext**. Vinext is **beta**. Run `npx vinext check` and `npx vinext init` on the existing app; keep `npm run build` (`next build`) green. Maintain working original Next.js dev/build. Document **OpenNext** as fallback only if Vinext fails a *measured compatibility or performance check*. No premature framework rewrite.
+- Dedicated **myrota** Cloudflare **D1** (SQLite) database with Drizzle ORM/migrations. Myrota is not to access ApplyOS or Fleetpass databases, Supabase Auth or storage. No secrets or IDs from other projects.
+- **Better Auth v1.5+**, backed by D1; `anonymous()` at first meaningful mutation; Google OAuth first for claim; email OTP via Brevo second. Apple sign-in is FAST FOLLOW until Apple Developer account/access configured. Keep session cookies HttpOnly/Secure/SameSite and on one canonical host. Auth endpoints defended with Turnstile server verification and rate limits; protect anonymous account creation and OTP resends. No account required before seeing a rota.
+- All DB operations server-side behind authenticated, ownership-checked routes. No public SQL/API keys. Friend endpoints expose only safe completion/streak data. Never use a client-supplied ownerId as authorization.
+- Workers AI for extraction with a provider-neutral adapter, deterministic INCI normalisation and evidence/provenance. `R2` **only if necessary**; activation/billing verification before enabling; otherwise transient images only with explicit lifecycle.
+- Queues/Cron/web-push VAPID for supported reminders. iOS requires installed Home Screen PWA to receive Web Push; Android compatible browsers may support push without install; permission only after user action.
+- Separate myrota Google OAuth client and consent-screen branding; Brevo verified sending domain and email templates. Google OAuth console and transactional email provider are necessarily external.
+- Future Expo/native reuses pure `lib/domain` and HTTP contracts; platform-specific auth clients and UI are separate.
+
+## Free-tier reality and Gate 1 budget decision
+Workers Free: 100k requests/day, **10 ms CPU per Worker invocation**; D1 5M rows read/day, 100k written/day, **500 MB per DB**; Workers AI **10k neurons/day**. The caps are hard: don't assert high-volume viability without measurements. If realistic SSR+auth+D1 routes breach CPU or deployment limits, obtain approval for **Workers Paid (minimum $5/month)** immediately at Gate 1, rather than mutilate architecture for a nominally free result. Do not create paid resources or put secrets in the repo without explicit user approval.
+Brevo Free: 300 sends/day, including transactional; count **all** sends/resends, pre-alert around 200/day, enforce per-address/IP rate limits, Google displayed first. Do not promise the 300-email ceiling can support an arbitrary viral burst.
+
+## Nonnegotiable product promise
+**Show myrota what you already own → get an explainable seven-day routine → follow it → continue → invite someone who creates their own rota.**
+- **Understand:** Scan back label, search, paste INCI, gallery; front label only when needed for identity; editable product name/type/ingredient chips; confidence independent for SKU and ingredients (verified/user-confirmed/partial/unknown/corrected). ANY product may be held on user's Shelf. Unknown products must never be treated as safe or compatible.
+- **Plan:** reviewed rule engine, ordered AM/PM sessions, contextual questions when relevant, Shelf Check max 3 observations, 7-day reveal, no fake confident compatibility. `/mix` public entry point returns one of Fine together, Better separated, Alternate days, Check with a professional, Not enough evidence; unreviewed rules default to **Not enough evidence**.
+- **Do:** One tap per scheduled AM/PM session, no per-product checklists, explicit one-tap Rest Day when no sessions, recovery/swap, 04:00 *user-local* skincare-day rollover, no catch-up doubling; streak + Rescue derived from dated events.
+- **Continue:** Day 7 separates 7/7 full adherence from partial Week Ended; retain complete event history; optional calm/irritated reflection saved by rota; week 2 continues same shelf and reviewed scheduling constraints without automatic increased treatment frequency.
+- **Spread:** reusable opaque invite tokens, one-to-many invitation joins, each friend their own plan, pairwise Friend Streak from both qualifying daily adherence records, WhatsApp share and user-initiated nudge, privacy-preserving share previews and working destinations. Product names opt-in; safe reviewed active classes can appear on Mix share cards. Real friend progress on Today.
+- **Identity and growth:** named guest can invite without OAuth; after value offer Google → email code; account claim never loses guest shelf or active friends; no fake Apple button if not configured.
+- **UI:** Brand v4 and corrected v1.2 visuals, Today/Shelf/Friends nav; Profile behind avatar; no Feed, leaderboard, ecommerce, product scoring or native app yet. Neutral/Sienna unknown states, initials avatars, text on plated backgrounds not raw grain. Licensed/owned production photography required before public launch.
+
+## Rescues and date correctness (LOCKED)
+- Qualifying day = all actually scheduled AM/PM sessions done, OR explicit Rest check-in. Day records are immutable/idempotent and keyed by rota_id + skincare_local_date, with timezone IANA ID and 04:00 rollover calculation.
+- One Rescue per *missed rota*, not per newly opened calendar week; can cover one missed skincare day. Remains actionable for **48 hours after that missed day's 04:00 rollover**, even across week boundary; explicit expiry shown. When multiple misses occur, never silently erase unresolved prior miss; show whichever is eligible and identify unrescuable misses.
+- Rescue is `rescued`, NOT `completed`. Preserves streak *continuity* over a gap without incrementing the *earned-completion count*. Displayed continuity/earned stats must not conflate the two. No synthetic treatment completion. Friend Streak rule: only both users' **qualifying real completed** local days, never rescued as an earned session.
+- All week archive/rollover operations idempotent and transactional where DB supports it; avoid dual `startNextWeek` / `nextDay` semantics and double archives.
+- Shared streak for Lagos (+01) and Dubai (+04) uses each person's local skincare-day boundary and a deterministic pair date policy documented/tested; don't compare naive UTC date strings.
+
+## Account claim and merge (acceptance scenario 13)
+Better Auth anonymous `onLinkAccount` may delete the anonymous identity by default. **Never assume it can merge automatically with an *existing* Google account.** Prove new-provider and existing-provider scenarios independently in Gate 1 before any destructive guest deletion. If the plugin callback doesn't cover returning Google users, implement a distinct secure merge transaction after both identities have been verified, before final guest retirement.
+- `shelf`: union, deduplicate by verified canonical SKU where possible, otherwise stable user-confirmed signature; retain distinct variants and all provenance; never elevate unverified ingredient confidence.
+- `day records`: union by rota/date identity with duplicate idempotency, completed beats missed *only where there is a real dated completion event*; do not let a mislabeled imported record invent completion. Preserve source, timezone, rescue, and modification/audit trails.
+- `streak`: recompute from merged chronological real records; never add/copy numeric counters.
+- `friend pairs` and `invite links`: union, enforce pair uniqueness, disallow self-pair; migrate ownership without exposing private shelf.
+- `safety context`: remains on device, never merged/shared. When a claimed account arrives on a new device, ask relevant contextual questions again before recommending treatments whose safety depends on them.
+- Make merge atomic/idempotent/retry-safe and test interruption halfway through. Never delete the guest until success is verified; log correlation IDs, not sensitive content.
+
+## Safety and regulatory integrity
+- All clinical/therapeutic rules and SafetyFlags require appropriate pharmacist/dermatologist reviewer attribution, evidence refs and active version. Draft fixtures MUST NOT appear to users as confident advice.
+- Distinguish **label-declared ingredient warning** from **verified product+variant regulatory alert**. Never trigger a named-product regulator alert from OCR guess or user-typed name alone; link the exact authoritative notice, obtain legal/content review. Unknown/unmatched is NOT evidence of safety. CosIng is name-normalisation, not product safety certification.
+- Preserve readability and confidence scopes; reviews never silently turn identity correctness into ingredient confidence. Ask for correction or show insufficient evidence.
+
+## 13 launch regression scenarios — tests, not checkboxes
+1. User correcting all ingredient chips does not crash; `corrected` remains unverified.
+2. First 7-day rota archived once when `startNextWeek`; streak/history survives.
+3. Mix→rota note accurately reflects reviewed pair verdict (including compatible and insufficient).
+4. A missed day remains Rescue-eligible after a later calendar rollover; no silent disappearance.
+5. Rescue expires visibly after exactly 48h; no retroactive claim outside eligibility.
+6. Rescue preserves continuity but never increments earned completed days.
+7. Named regulatory flag requires verified product/variant identity and regulator notice; label-warning path separate.
+8. Rota Ring renders future/missed/rescued distinctions (including prototype sentinel `x` only as a UI adapter).
+9. Default share card names off but verified active classes/verdict remain intelligible; explicit preview.
+10. 04:00 user-local rollover and session completion, including DST and UTC offsets.
+11. iOS Safari↔Home Screen installed-app continuity, links opening Safari instead of app, and recovery after copied-cookie divergence; guest saved data never silently discarded.
+12. Weekly reflection saved against correct immutable rota and read next week.
+13. Guest→new Google/email identity and guest→**existing account with prior shelf**: deterministic atomic merge; union and dedup; real completion precedence; recomputed streak; pairs/invites preserved; safety context stays device-local.
+Also verify actual paired Friend Streak across Lagos/Dubai timezones and one-product Rest cases.
+
+## 30-label extraction gate
+- 30 real labels from Lagos local, Dubai/imported and difficult cases; >=90% legible-active recall, >=24/30 correct identity, zero invented confident actives, zero overconfident misses, every partial/unknown recoverable. Never pass with synthetic-only benchmark fixtures.
+- Record actual `ai_neurons_per_scan` (including fallback attempts), input bytes, provider/model, latency median/p95, requests, cost estimate, region, correction rate; derive practical scans/day under 10k neurons.
+- Avoid storing user images in public GitHub; benchmark samples private/consented. Fleetpass Cloudflare→Groq evidence in `docs/FLEETPASS_EXTRACTION_REUSE.md` is an informed baseline, not a mandate.
+
+## Gate plan (no phase skipping)
+**Gate 1 — Foundation (NOW)**: `next build` remains green; Vinext check/init+build+Workers Free deployed (or recorded blocker); D1 Drizzle migrations; Better Auth anonymous signup, Google/OTP paths (or secret-dependent blockers explicitly reported), secure shelf write/read, test both merge paths and CPU/latency. Decide $5 at THIS gate if performance requires it.
+**Gate 2 — Intelligence**: real OCR/provider benchmark; review UI; versioned rules, safety review, provenance; neuron metric and 30-label real-data PASS.
+**Gate 3 — Behaviour**: all 13 regression scenarios and timezone/pair cases green.
+**Gate 4 — Growth**: real reusable token→recipient own rota→two-sided streak; account claim, cards/share/OG, install/reminders.
+**Gate 5 — Release**: visual fidelity to approved assets, provider branding, professional signoff, licensed photos, cross-device/browser tests, usage monitoring and 10-user beta.
+
+## Working arrangements — simultaneous execution
+- **Infrastructure branch**: `infra/cloudflare-gate1` owned by ChatGPT. ONLY modify backend/infra, data contracts, test harness, migrations, CI, config and infrastructure documentation. Report commits and red/green verification.
+- **Design branch**: Claude Code uses `feat/product-ui-v1-2` from current `main`. ONLY implement approved UI components, screens, design tokens/motion/assets and pure platform-neutral domain functions/tests. API/repository interfaces are specified in `docs/IMPLEMENTATION_HANDOFF.md`. Never rewrite Cloudflare configuration/Auth/D1/migrations, never alter `CLAUDE.md`, and don't merge into `main` while Gate 1 is underway.
+- No shared working-tree conflicts. Integration by cherry-pick/PR after Gate 1, with explicit interface tests, never force-push.
+
+## Current status / no false claims
+- Main branch is a Next.js 16 scaffold with provisional `localStorage` data; not the v1.2 product.
+- No confirmed Cloudflare account/resource, D1 DB, Worker deployment, OAuth credentials or Brevo keys have been provisioned from this chat.
+- No actual 30-label dataset has been run yet. CI synthetic tests validate only the evaluator itself.
+- Do not announce a tested PWA until end-to-end live user persistence+invite and device verification are recorded.
