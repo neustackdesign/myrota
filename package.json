@@ -8,17 +8,22 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "test:benchmark": "node --test tests/ingestion-benchmark.test.mjs"
+    "test:benchmark": "node --test tests/ingestion-benchmark.test.mjs",
+    "db:generate": "drizzle-kit generate",
+    "db:check": "drizzle-kit check",
+    "gate1:vinext:check": "vinext check"
   },
   "dependencies": {
     "next": "16.3.8",
     "react": "19.3.0",
-    "react-dom": "19.3.0"
+    "react-dom": "19.3.0",
+    "drizzle-orm": "^0.44.0"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
-    "typescript": "^5.9.0"
+    "typescript": "^5.9.0",
+    "drizzle-kit": "^0.31.0"
   }
 }
