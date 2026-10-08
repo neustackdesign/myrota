@@ -14,7 +14,15 @@ command -v curl >/dev/null || { echo "curl is required." >&2; exit 2; }
 echo "== Verify Cloudflare login and current project =="
 npx wrangler whoami >/dev/null
 echo "== Build and validate candidate =="
-npm ci --no-audit --no-fund
+# Older pilot branches have no tracked lockfile; npm ci would stop at EUSAGE.
+# Prefer deterministic ci when a lock exists; otherwise install and ask the
+# operator to commit the generated lockfile after verification.
+if [[ -f package-lock.json ]]; then
+  npm ci --no-audit --no-fund
+else
+  echo "NOTE: no package-lock.json; npm install will create one. Commit it after validation."
+  npm install --no-audit --no-fund
+fi
 npm run typecheck
 npm run test:domain
 npm run build:vinext
