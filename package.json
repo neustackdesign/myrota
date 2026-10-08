@@ -15,7 +15,8 @@
     "dev:vinext": "vite dev",
     "build:vinext": "vite build",
     "preview:vinext": "vite preview",
-    "deploy:cloudflare": "npx @vinext/cloudflare deploy"
+    "deploy:cloudflare": "npx @vinext/cloudflare deploy",
+    "test:merge": "node --experimental-strip-types --test tests/claim-merge.test.mjs"
   },
   "dependencies": {
     "next": "16.3.8",
