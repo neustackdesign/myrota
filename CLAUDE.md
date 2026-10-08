@@ -28,8 +28,8 @@ Brevo Free: 300 sends/day, including transactional; count **all** sends/resends,
 
 ## Nonnegotiable product promise
 **Show myrota what you already own → get an explainable seven-day routine → follow it → continue → invite someone who creates their own rota.**
-- **Understand:** Scan back label, search, paste INCI, gallery; front label only when needed for identity; editable product name/type/ingredient chips; confidence independent for SKU and ingredients (verified/user-confirmed/partial/unknown/corrected). ANY product may be held on user's Shelf. Unknown products must never be treated as safe or compatible.
-- **Plan:** reviewed rule engine, ordered AM/PM sessions, contextual questions when relevant, Shelf Check max 3 observations, 7-day reveal, no fake confident compatibility. `/mix` public entry point returns one of Fine together, Better separated, Alternate days, Check with a professional, Not enough evidence; unreviewed rules default to **Not enough evidence**.
+- **Understand:** Scan back label, search, paste INCI, gallery; front label only when needed for identity; editable product name/type/**rinse-off vs leave-on vs unknown**/ingredient chips; confidence independent for SKU and ingredients (verified/user-confirmed/partial/unknown/corrected). ANY product may be held on user's Shelf. Unknown products must never be treated as safe or compatible. **Never default an unread/unknown scan to leave-on.**
+- **Plan:** reviewed rule engine, ordered AM/PM sessions, contextual questions when relevant, Shelf Check max 3 observations, 7-day reveal, no fake confident compatibility. `/mix` public entry point returns one of Fine together, Better separated, Alternate days, Check with a professional, Not enough evidence; unreviewed rules default to **Not enough evidence**. Timing rules must express reviewer-controlled spacing/cadence (not just `maxPerWeek`) and the next rota must consider trailing treatment days from the previous rota so week boundaries cannot create an unsafe/irritating adjacency.
 - **Do:** One tap per scheduled AM/PM session, no per-product checklists, explicit one-tap Rest Day when no sessions, recovery/swap, 04:00 *user-local* skincare-day rollover, no catch-up doubling; streak + Rescue derived from dated events.
 - **Continue:** Day 7 separates 7/7 full adherence from partial Week Ended; retain complete event history; optional calm/irritated reflection saved by rota; week 2 continues same shelf and reviewed scheduling constraints without automatic increased treatment frequency.
 - **Spread:** reusable opaque invite tokens, one-to-many invitation joins, each friend their own plan, pairwise Friend Streak from both qualifying daily adherence records, WhatsApp share and user-initiated nudge, privacy-preserving share previews and working destinations. Product names opt-in; safe reviewed active classes can appear on Mix share cards. Real friend progress on Today.
@@ -73,6 +73,10 @@ Better Auth anonymous `onLinkAccount` may delete the anonymous identity by defau
 13. Guest→new Google/email identity and guest→**existing account with prior shelf**: deterministic atomic merge; union and dedup; real completion precedence; recomputed streak; pairs/invites preserved; safety context stays device-local.
 Also verify actual paired Friend Streak across Lagos/Dubai timezones and one-product Rest cases.
 
+**Additional integration invariants:**
+- Unknown extraction format remains `unknown` until evidenced or explicitly confirmed; it is never silently promoted to leave-on.
+- Cross-week treatment spacing: if a reviewed rule requires recovery days between uses, a treatment on the prior rota's final day constrains the new rota's first eligible treatment day. `maxPerWeek` alone must never be used to invent cadence.
+
 ## 30-label extraction gate
 - 30 real labels from Lagos local, Dubai/imported and difficult cases; >=90% legible-active recall, >=24/30 correct identity, zero invented confident actives, zero overconfident misses, every partial/unknown recoverable. Never pass with synthetic-only benchmark fixtures.
 - Record actual `ai_neurons_per_scan` (including fallback attempts), input bytes, provider/model, latency median/p95, requests, cost estimate, region, correction rate; derive practical scans/day under 10k neurons.
@@ -81,7 +85,7 @@ Also verify actual paired Friend Streak across Lagos/Dubai timezones and one-pro
 ## Gate plan (no phase skipping)
 **Gate 1 — Foundation (NOW)**: `next build` remains green; Vinext check/init+build+Workers Free deployed (or recorded blocker); D1 Drizzle migrations; Better Auth anonymous signup, Google/OTP paths (or secret-dependent blockers explicitly reported), secure shelf write/read, test both merge paths and CPU/latency. Decide $5 at THIS gate if performance requires it.
 **Gate 2 — Intelligence**: real OCR/provider benchmark; review UI; versioned rules, safety review, provenance; neuron metric and 30-label real-data PASS.
-**Gate 3 — Behaviour**: all 13 regression scenarios and timezone/pair cases green.
+**Gate 3 — Behaviour**: all 13 regression scenarios, the two integration invariants above, and timezone/pair cases green.
 **Gate 4 — Growth**: real reusable token→recipient own rota→two-sided streak; account claim, cards/share/OG, install/reminders.
 **Gate 5 — Release**: visual fidelity to approved assets, provider branding, professional signoff, licensed photos, cross-device/browser tests, usage monitoring and 10-user beta.
 
