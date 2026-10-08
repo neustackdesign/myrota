@@ -162,7 +162,9 @@ function Review() {
           <div className="segmented" role="group" aria-label="Rinse-off or leave-on">
             <button type="button" aria-pressed={product.format === "rinse_off"} onClick={() => setProduct({ ...product, format: "rinse_off" })}>Rinse-off</button>
             <button type="button" aria-pressed={product.format === "leave_on"} onClick={() => setProduct({ ...product, format: "leave_on" })}>Leave-on</button>
+            <button type="button" aria-pressed={product.format === "unknown"} onClick={() => setProduct({ ...product, format: "unknown" })}>Not sure</button>
           </div>
+          {product.format === "unknown" ? <p className="t-note t-sienna">We can't tell whether this product is rinsed off. It will stay on your Shelf until you confirm its format.</p> : null}
           <div className="field">
             <span className="t-label" id="ing-label">Ingredients we read</span>
             {product.ingredients.length ? (

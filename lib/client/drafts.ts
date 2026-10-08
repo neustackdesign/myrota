@@ -38,7 +38,7 @@ export function draftFromCandidate(c: ExtractionCandidate, method: "scan" | "gal
     brand: c.brand ?? "",
     name: c.name ?? "",
     category: c.category ?? "other",
-    format: "leave_on",
+    format: c.format ?? "unknown",
     identityStatus: c.identityStatus,
     inciStatus: c.inciStatus,
     identityKey: c.identityKey,

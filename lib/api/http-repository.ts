@@ -52,6 +52,8 @@ export function createHttpRepository(options: HttpRepositoryOptions = {}): RotaR
 
   async function request<T>(method: string, path: string, body?: unknown, init: { auth?: boolean; raw?: BodyInit; headers?: Record<string, string> } = {}): Promise<T> {
     const headers: Record<string, string> = { Accept: "application/json", ...init.headers };
+    // Product day boundaries are per-user at 04:00 in the user's IANA timezone.
+    if (typeof Intl !== "undefined") headers["x-myrota-time-zone"] = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
     if (body !== undefined && !init.raw) headers["Content-Type"] = "application/json";
     if (init.auth && options.captchaToken) {
       const token = await options.captchaToken();
