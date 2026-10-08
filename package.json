@@ -22,7 +22,8 @@
     "next": "16.3.8",
     "react": "19.3.0",
     "react-dom": "19.3.0",
-    "drizzle-orm": "^0.44.0"
+    "drizzle-orm": "^0.44.0",
+    "better-auth": "^1.5.0"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
@@ -34,7 +35,8 @@
     "vite": "latest",
     "@cloudflare/vite-plugin": "latest",
     "wrangler": "latest",
-    "@vitejs/plugin-rsc": "latest"
+    "@vitejs/plugin-rsc": "latest",
+    "@cloudflare/workers-types": "latest"
   },
   "type": "module"
 }
