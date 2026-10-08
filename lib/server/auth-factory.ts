@@ -100,6 +100,48 @@ export function createMyrotaAuth(options: AuthFactoryOptions) {
       },
     },
     database: options.db,
+    // The live 0001 D1 migration was generated with Drizzle snake_case
+    // column names. The native Better Auth D1/Kysely adapter otherwise
+    // expects camelCase and rejects anonymous sign-in with SCHEMA_MISMATCH.
+    // Keep the EXISTING database untouched; map every renamed core field.
+    user: {
+      fields: {
+        emailVerified: "email_verified",
+        createdAt: "created_at",
+        updatedAt: "updated_at",
+      },
+    },
+    session: {
+      fields: {
+        userId: "user_id",
+        expiresAt: "expires_at",
+        createdAt: "created_at",
+        updatedAt: "updated_at",
+        ipAddress: "ip_address",
+        userAgent: "user_agent",
+      },
+    },
+    account: {
+      fields: {
+        accountId: "account_id",
+        providerId: "provider_id",
+        userId: "user_id",
+        accessToken: "access_token",
+        refreshToken: "refresh_token",
+        idToken: "id_token",
+        accessTokenExpiresAt: "access_token_expires_at",
+        refreshTokenExpiresAt: "refresh_token_expires_at",
+        createdAt: "created_at",
+        updatedAt: "updated_at",
+      },
+    },
+    verification: {
+      fields: {
+        expiresAt: "expires_at",
+        createdAt: "created_at",
+        updatedAt: "updated_at",
+      },
+    },
     secret: options.secret,
     baseURL: options.appUrl,
     trustedOrigins: options.trustedOrigins,
@@ -112,6 +154,8 @@ export function createMyrotaAuth(options: AuthFactoryOptions) {
       : {},
     plugins: [
       anonymous({
+        // Match the anonymous-plugin-owned field to the same 0001 migration.
+        schema: { user: { fields: { isAnonymous: "is_anonymous" } } },
         // Gate 1: never let Better Auth automatically delete the guest.
         // We explicitly retire it only after the D1 merge batch is verified.
         disableDeleteAnonymousUser: true,
