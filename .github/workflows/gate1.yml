@@ -87,6 +87,8 @@ jobs:
           grep -q '"verification"' /tmp/myrota-d1-tables.txt
           grep -q '"shelf_items"' /tmp/myrota-d1-tables.txt
           grep -q '"account_merge_jobs"' /tmp/myrota-d1-tables.txt
+          grep -q '"rota_snapshots"' /tmp/myrota-d1-tables.txt
+          grep -q '"day_records"' /tmp/myrota-d1-tables.txt
 
       - name: Vinext compatibility probe
         run: npx vinext check
@@ -126,3 +128,16 @@ jobs:
             -d '{"a":{"kind":"unknown","name":"Product A"},"b":{"kind":"unknown","name":"Product B"}}' \
             http://127.0.0.1:4173/api/mix | tee /tmp/mix.json
           node -e 'const j=require("/tmp/mix.json");if(j.result.verdict!=="insufficient_evidence")process.exit(1)'
+          echo
+          echo '--- guest-data endpoints cannot leak without a session ---'
+          shelf_code="$(curl --silent -o /tmp/shelf-no-session.json -w '%{http_code}' http://127.0.0.1:4173/api/shelf)"
+          test "$shelf_code" = "401"
+          today_code="$(curl --silent -o /tmp/today-no-session.json -w '%{http_code}' http://127.0.0.1:4173/api/today)"
+          test "$today_code" = "401"
+          echo '--- claim disabled until verified data merge ---'
+          claim_code="$(curl --silent -o /tmp/claim.json -w '%{http_code}' -H 'content-type: application/json' \
+            -d '{"provider":"google"}' http://127.0.0.1:4173/api/auth/sign-in/social)"
+          test "$claim_code" = "501"
+          echo '--- public sign-in methods are correctly disabled ---'
+          node -e 'const j=require("/tmp/config.json");if(j.providers.google!==false||j.providers.emailOtp!==false||j.providers.apple!==false)process.exit(1)'
+
