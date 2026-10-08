@@ -1,6 +1,6 @@
 # Gate 1 — Cloudflare foundation / release record
 **Target:** complete technical feasibility proof without changing ApplyOS/Fleetpass.
-**Status:** NOT VERIFIED as of 8 October 2026; provisioning credentials missing.
+**Status (8 Oct 2026):** Build preflight PASS; live Cloudflare deployment/auth/database NOT provisioned. [Green CI: 37707571740](https://github.com/neustackdesign/myrota/actions/runs/37707571740).
 **Owners:** ChatGPT remote GitHub infra branch; Claude Code local UI branch.
 
 ## Inputs needed from Cloudflare owner
@@ -60,16 +60,22 @@ Workers Free has a 10 ms CPU limit per invocation, plus 100k daily requests and 
 ## Acceptance report template (update with evidence)
 | Check | Status | Evidence |
 |---|---|---|
-| Next build stays working | NOT RUN | CI link |
-| Vinext check | NOT RUN | exact stdout |
-| Vinext build | NOT RUN | CI link |
+| Next build stays working | PASS | [Gate 1 CI](https://github.com/neustackdesign/myrota/actions/runs/37707571740) |
+| Vinext check | PASS (94% compatibility; only App Router reactStrictMode partial) | [Gate 1 CI](https://github.com/neustackdesign/myrota/actions/runs/37707571740) |
+| Vinext build | PASS | [Gate 1 CI](https://github.com/neustackdesign/myrota/actions/runs/37707571740) |
 | Workers deployed | BLOCKED ON CLOUDFLARE ACCOUNT | URL |
+| D1 SQL schema generated | PASS (two tables; unapplied) | [CI migration artifact](https://github.com/neustackdesign/myrota/actions/runs/37707571740) |
 | D1 created | BLOCKED ON CLOUDFLARE ACCOUNT | database UUID |
-| Better Auth guest → new identity | NOT RUN | automated/integration test |
+| Better Auth factory compiles | PASS (factory only; not mounted) | [Gate 1 CI](https://github.com/neustackdesign/myrota/actions/runs/37707571740) |
+| Pure account merge planner tests | PASS (6 synthetic tests; NOT real identity link) | [Gate 1 CI](https://github.com/neustackdesign/myrota/actions/runs/37707571740) |
+| Better Auth guest → new identity | NOT RUN | live integration test |
 | Better Auth guest → existing Google | NOT RUN | integration test |
 | Shelf user A cannot see user B | NOT RUN | access test |
 | CPU/usage measured | NOT RUN | Cloudflare dashboard |
 | iOS install/browser session | DEVICE TEST REQUIRED | video/report |
+
+## Current boundary
+Build compatibility and generated SQL are verified in GitHub Actions. Neither Cloudflare Worker nor D1 has been created. The Better Auth factory is fail-closed and not mounted as an active route until database, sender, abuse validation and atomic account-merge implementation exist. The app's /api/health intentionally responds HTTP 503 with live:false. The work is not a live tested PWA yet.
 
 ## Public references (current)
 - https://developers.cloudflare.com/workers/framework-guides/web-apps/nextjs/
