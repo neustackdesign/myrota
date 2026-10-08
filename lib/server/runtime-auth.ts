@@ -1,6 +1,19 @@
 import { createMyrotaAuth } from "./auth-factory";
 import { bindings } from "./cloudflare-env";
 
+function allowedOrigins(workerOrigin: string, csv?: string): string[] {
+  const origins = new Set([workerOrigin]);
+  for (const raw of (csv ?? "").split(",")) {
+    const value = raw.trim();
+    if (!value) continue;
+    const parsed = new URL(value);
+    const isLocal = parsed.protocol === "http:" && parsed.hostname === "localhost";
+    if (!isLocal && parsed.protocol !== "https:") throw new Error("Invalid trusted origin");
+    if (parsed.origin !== value.replace(/\\/$/, "")) throw new Error("Trusted origin must be a bare origin");
+    origins.add(parsed.origin);
+  }
+  return [...origins];
+}
 function baseUrlFor(request: Request, configured?: string) {
   if (configured) return configured.replace(/\/$/, "");
   const url = new URL(request.url);
@@ -57,7 +70,7 @@ export async function runtimeAuth(request: Request) {
     db: e.DB,
     appUrl,
     secret: e.BETTER_AUTH_SECRET,
-    trustedOrigins: [appUrl],
+    trustedOrigins: allowedOrigins(appUrl, e.MYROTA_TRUSTED_ORIGINS),
     google:
       e.GOOGLE_CLIENT_ID && e.GOOGLE_CLIENT_SECRET
         ? { clientId: e.GOOGLE_CLIENT_ID, clientSecret: e.GOOGLE_CLIENT_SECRET }
