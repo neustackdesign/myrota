@@ -1,3 +1,4 @@
+import type { D1Database } from "@cloudflare/workers-types";
 import { betterAuth } from "better-auth";
 import { anonymous, emailOTP } from "better-auth/plugins";
 
@@ -24,7 +25,7 @@ export interface AuthFactoryOptions {
   sendOtp: (event: {
     email: string;
     otp: string;
-    type: "sign-in" | "email-verification" | "forget-password";
+    type: "sign-in" | "email-verification" | "forget-password" | "change-email";
   }) => Promise<void>;
   mergeGuestIntoClaimed: (event: {
     guestUserId: string;
@@ -61,7 +62,7 @@ export function createMyrotaAuth(options: AuthFactoryOptions) {
         onLinkAccount: async ({ anonymousUser, newUser }) => {
           await options.mergeGuestIntoClaimed({
             guestUserId: anonymousUser.user.id,
-            claimedUserId: newUser.id,
+            claimedUserId: newUser.user.id,
           });
           // If the merge rejects, auth claiming MUST abort rather than
           // silently discard guest shelf, friend pairs or dated activity.
