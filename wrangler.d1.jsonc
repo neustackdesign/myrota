@@ -1,0 +1,21 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "myrota",
+  "compatibility_date": "2026-10-08",
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
+  "main": "vinext/server/fetch-handler",
+  "preview_urls": true,
+  "assets": {
+    "not_found_handling": "none"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "myrota",
+      "database_id": "7992c70c-171b-4a03-8b8f-e88d1fcba9c8",
+      "migrations_dir": "db/migrations"
+    }
+  ]
+}
