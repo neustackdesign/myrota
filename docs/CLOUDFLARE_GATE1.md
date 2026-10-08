@@ -101,3 +101,16 @@ The current Vinext 1.0.1 diagnostic generated:
 Infra branch now follows that generated shape. The exact WEUR D1 UUID remains in `wrangler.d1.jsonc` solely for D1 migration/admin safety; application deployment uses typed `cloudflare.config.ts`, which binds the existing `myrota` D1 resource by name in the locked Cloudflare account.
 
 Before a third remote deploy, CI must prove the App Router handlers locally: `/api/config` must return 200 and `/api/health` must resolve to a non-404 status under Vinext preview. Do not treat successful upload as successful application routing.
+
+
+## Vinext local route smoke — PASS
+Current infra branch now matches the Vinext 1.0.1 Cloudflare init shape and passes a full local Worker route smoke:
+- native `next build`: PASS
+- Vinext compatibility: PASS
+- Vinext production build: PASS
+- local `/api/config`: resolves 200
+- local `/api/health`: resolves (non-404)
+- App Router build explicitly includes `/api/auth/:all+`, `/api/config`, `/api/health`, `/api/me`, `/api/shelf`
+- compatibility date pinned to `2026-09-28`, the newest date supported by the current workerd shipped in this Vinext toolchain.
+
+The third remote deploy is therefore allowed. If it still 404s, treat it as a remote deployment/output issue, not an unverified App Router route issue.
