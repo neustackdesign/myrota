@@ -108,3 +108,19 @@ jobs:
           health="$(curl -s -o /tmp/health.json -w '%{http_code}' http://127.0.0.1:4173/api/health || true)"
           test "$health" != "404"
           cat /tmp/health.json
+          echo
+          echo '--- real pasted INCI response ---'
+          curl --fail-with-body --silent --show-error -H 'content-type: application/json' \
+            -d '{"method":"paste","side":"back","pastedText":"Ingredients: Aqua, Glycerin, Niacinamide"}' \
+            http://127.0.0.1:4173/api/extract | tee /tmp/extract.json
+          node -e 'const j=require("/tmp/extract.json"); if(!j.ok||j.candidate.format!==null||j.candidate.inciStatus!=="partial"||j.candidate.identityStatus!=="unknown"||j.candidate.ingredients.length!==3||j.candidate.ingredients.some(x=>x.activeClass))process.exit(1)'
+          echo
+          echo '--- no false product-library matches ---'
+          curl --fail-with-body --silent --show-error http://127.0.0.1:4173/api/catalogue?q=serum | tee /tmp/catalogue.json
+          node -e 'const j=require("/tmp/catalogue.json");if(!Array.isArray(j.results)||j.results.length)process.exit(1)'
+          echo
+          echo '--- no unreviewed compatibility claims ---'
+          curl --fail-with-body --silent --show-error -H 'content-type: application/json' \
+            -d '{"a":{"kind":"unknown","name":"Product A"},"b":{"kind":"unknown","name":"Product B"}}' \
+            http://127.0.0.1:4173/api/mix | tee /tmp/mix.json
+          node -e 'const j=require("/tmp/mix.json");if(j.result.verdict!=="insufficient_evidence")process.exit(1)'
