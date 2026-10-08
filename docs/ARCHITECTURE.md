@@ -1,152 +1,49 @@
-# Architecture
+# Architecture — Cloudflare-native (locked 8 Oct 2026)
 
-## Principle
+Canonical contract: root `CLAUDE.md`. Execution checklist: `docs/CLOUDFLARE_GATE1.md`. UI/backend integration: `docs/IMPLEMENTATION_HANDOFF.md`.
 
-Move fast on the PWA without making the future native app a rewrite of the product brain.
+## Ownership
+myrota runs independently of ApplyOS and Fleetpass. No shared Supabase, no alternative Neon path unless the Cloudflare proof fails. Domain code remains native-portable in `lib/domain`.
 
+## Runtime
 ```
-PRODUCT DATA
-    ↓
-RULE ENGINE
-    ↓
-ROTA ENGINE
-    ↓
-BEHAVIOUR / STREAK ENGINE
-    ↓
-platform adapters
-    ├── Next.js PWA
-    ├── Expo / iOS
-    └── Expo / Android
-```
-
-## Domain
-
-`lib/domain` must stay pure TypeScript.
-
-It owns:
-- Product
-- ActiveClass
-- Rule
-- relationship evaluation
-- Rota
-- RotaDay / Session
-- shelf observations
-- streak / rescue calculation
-
-It must not know about:
-- React
-- Next.js
-- LocalStorage
-- cookies
-- Supabase
-- Web Push
-- Vercel
-
-## Persistence
-
-Current:
-- `lib/client/storage.ts` is temporary browser persistence.
-
-Target:
-- repository interface
-- Supabase implementation
-- local fallback implementation for development/tests
-
-Supabase target state:
-- anonymous authenticated user
-- cookie-backed session
-- shelf and rota persisted server-side
-- account claim upgrades same user
-- RLS on every exposed table
-
-## Product-data model
-
-Production catalogue records should eventually include:
-
-```
-source
-source_product_id
-brand
-name
-inci_raw
-inci_parsed
-active_classes[]
-format
-confidence
-status
-confirmations
-last_verified
+User browser / installed PWA
+  ↓ secure same-origin cookie
+Cloudflare Worker — Next.js 16 via Vinext (beta; OpenNext documented fallback)
+  ├─ Better Auth v1.5+ (anonymous→Google/email OTP), sessions and cookies
+  ├─ server-only API endpoints and authorization
+  ├─ rule engine and domain service layer
+  ├─ Drizzle → D1 myrota database
+  ├─ Workers AI extraction (with evidence/provenance)
+  ├─ optional transient R2 object lifecycle (requires activation)
+  └─ Cron/Queues/Web Push for reminders
+External: Google OAuth client and Brevo delivery.
 ```
 
-Status progression:
+No direct public database client. All shelf, friend, rota and share reads are scoped to authenticated owner/valid share token. Never store private skincare/contextual answers in public share or friend payloads.
 
-```
-imported → user_confirmed → verified
-```
+## Auth claiming and identities
+- Generate guest only at first meaningful mutation; do not block first rota reveal.
+- Better Auth anonymous linking can delete anonymous users; need atomic idempotent migration of shelf/history/friends/invites before retirement.
+- Claiming with a pre-existing Google identity is a distinct authenticated merge case; test how callback behaves, implement secure verified merge if necessary. For privacy, sensitive contextual flags live only on the original device; users reconfirm on new devices.
+- Google preferred, email-code secondary. Do not enable unconfigured Apple or WhatsApp OTP.
+- iOS PWA Safari-cookie install continuity needs real-device testing; other browser contexts may diverge.
 
-A user correction updates their own copy first; it does not silently poison the shared canonical product.
+## D1 data sketch (source of truth is migrated SQL)
+Users/sessions/accounts from Better Auth schema.
+Product catalogue and candidate scan records; per-user shelf item with independent identity/INCI confidence, versioned corrected tokens and provenance; reviewed clinical and regulatory evidence with reviewer/audit fields.
+Rota immutable id/version and seven dated Rota Days; independently stored AM/PM/Rest completion events; Rescue records with 48h end-boundary deadline and continuity marker, not counted as an earned completion.
+Rota continuation and weekly reflections; reusable inviter tokens, invitation joins and unique friend pairs; timezone-specific daily completion safe summaries.
+D1 schema initially lives in `db/` and migration path; Drizzle typed access. No data from existing projects.
 
-## Rules
+## Clinical evidence
+OCR/model extracts candidates only. Dictionary normalisation with verbatim label spans; user confirmation does not certify safety. No unknown/unreviewed pair returns a positive verdict. Label declared warnings and independently sourced regulator alerts must never share one unverified path. Keep test fixtures from ever being presented as professionally reviewed clinical advice.
 
-Rules need precedence as the engine matures:
+## Free-tier instrumentation
+Workers Free CPU 10 ms/request is the risk; D1 limits 5M reads/day, 100k writes/day, 500MB/database; Workers AI 10k neurons/day; Brevo total 300 emails/day. Gate 1 records CPU and route timings, no assumption of high-volume sustainability. $5 Workers Paid option requires user confirmation when measured failure occurs.
 
-```
-product-specific
-> formulation / recognised combo
-> format
-> active-class
-> generic default
-```
+## Deployment compatibility
+`npm run build` (Next.js) **must** remain a passing control. Vinext `npx vinext check`, then `npx vinext init`, build/deploy through Cloudflare. OpenNext as documented fallback only with evidence. `wrangler` secrets held in Cloudflare, never in GitHub or browser code.
 
-Production rule metadata should eventually include:
-
-```
-rule_id
-class_a
-class_b
-relationship
-reason
-applies_to
-evidence_level
-source_refs[]
-reviewed_by_role
-reviewed_at
-version
-status
-explanation_short
-explanation_long
-```
-
-## Unknown states
-
-Unknown is a first-class state.
-
-Suggested product confidence:
-- verified
-- confirmed
-- partial
-- unknown
-
-No detected active does not mean no active exists.
-
-## Sharing/privacy boundary
-
-Never put private contextual flags in:
-- OG images
-- invite URLs
-- share cards
-- public payloads
-- friend-streak shared state
-
-Shared state should be limited to safe behavioural metadata.
-
-## Native path
-
-If PWA retention + invite loop works:
-
-1. move `lib/domain` into a workspace package
-2. create Expo app
-3. reuse API contracts and Supabase backend
-4. implement native notifications/widgets where they materially improve adherence
-
-Do not prematurely introduce a monorepo before the PWA proves itself.
+## Expo path
+Reuse `lib/domain`, API contracts, event names and backend. Native clients implement their own UI/platform notification and authenticated HTTP session handling. Don't create monorepo prematurely.
