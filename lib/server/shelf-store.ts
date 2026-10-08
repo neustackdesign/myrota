@@ -64,7 +64,8 @@ export function shelfRowToProduct(row: ShelfRow) {
 }
 
 export async function listShelf(ownerUserId: string) {
-  const result = await bindings().DB.prepare(
+  const db = (await bindings()).DB;
+  const result = await db.prepare(
     "SELECT * FROM shelf_items WHERE owner_user_id = ? ORDER BY created_at ASC"
   ).bind(ownerUserId).all<ShelfRow>();
   return result.results.map(shelfRowToProduct);
@@ -118,7 +119,8 @@ export async function addShelfProduct(ownerUserId: string, input: unknown) {
     },
   });
 
-  await bindings().DB.prepare(
+  const db = (await bindings()).DB;
+  await db.prepare(
     `INSERT INTO shelf_items
       (id, owner_user_id, identity_key, brand, product_name, product_type, product_format,
        identity_confidence, ingredient_confidence, inci_json, evidence_json, source,
@@ -129,7 +131,7 @@ export async function addShelfProduct(ownerUserId: string, input: unknown) {
     serializedIngredients, evidence, source, now, now
   ).run();
 
-  const row = await bindings().DB.prepare("SELECT * FROM shelf_items WHERE id = ? AND owner_user_id = ?")
+  const row = await db.prepare("SELECT * FROM shelf_items WHERE id = ? AND owner_user_id = ?")
     .bind(id, ownerUserId).first<ShelfRow>();
   if (!row) throw new Error("insert_failed");
   return shelfRowToProduct(row);
