@@ -11,7 +11,7 @@ if [[ "$branch" != "$EXPECTED_BRANCH" ]]; then
   exit 2
 fi
 
-actual_id="$(sed -n 's/.*"database_id"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' wrangler.jsonc | head -n 1)"
+actual_id="$(sed -n 's/.*"database_id"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' wrangler.d1.jsonc | head -n 1)"
 if [[ "$actual_id" != "$EXPECTED_DB_ID" ]]; then
   echo "Refusing remote migration: myrota D1 UUID mismatch." >&2
   echo "Expected: $EXPECTED_DB_ID" >&2
@@ -29,15 +29,15 @@ npx wrangler whoami
 
 echo
 echo "== Pending migrations for myrota =="
-npx wrangler d1 migrations list myrota --remote
+npx wrangler d1 migrations list myrota --remote --config wrangler.d1.jsonc
 
 echo
 echo "== Applying reviewed migrations to WEUR myrota D1 =="
-npx wrangler d1 migrations apply myrota --remote
+npx wrangler d1 migrations apply myrota --remote --config wrangler.d1.jsonc
 
 echo
 echo "== Verifying remote schema =="
-out="$(npx wrangler d1 execute myrota --remote --command "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name;")"
+out="$(npx wrangler d1 execute myrota --remote --config wrangler.d1.jsonc --command "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name;")"
 printf '%s\n' "$out"
 for table in user session account verification shelf_items account_merge_jobs; do
   if ! grep -q "\"$table\"" <<<"$out"; then
