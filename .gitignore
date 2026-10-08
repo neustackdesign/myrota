@@ -12,4 +12,7 @@ coverage
 .domain-test
 *.tsbuildinfo
 next-env.d.ts
-package-lock.json
+.wrangler
+.dev.vars*
+dist/
+.cloudflare/
