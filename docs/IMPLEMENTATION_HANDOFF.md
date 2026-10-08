@@ -21,21 +21,26 @@ HTTP JSON over same-origin HTTPS and cookie sessions. Payloads use stable IDs, I
 
 `GET /api/health` — status of binding/runtime (must not expose secrets or private data).
 `GET /api/me` — { userId, isAnonymous, displayName?, identityProviders[], hasRota }.
+`PATCH /api/me` — authenticated current-user display name only; never accepts an owner/user ID.
 `POST /api/auth/sign-in/anonymous` and Better Auth mounted at `/api/auth/[...all]` — guest session on **first meaningful save**, Google and email OTP via client methods; no separate parallel auth.
+`GET /api/config` — public client capabilities only: configured auth providers, Turnstile site key and VAPID public key; no secrets.
+`GET /api/catalogue?q=` — provenance-bearing catalogue search; result is not a verified user-owned product until confirmed/added.
 `GET /api/shelf` — { products: ShelfProduct[] }; `POST /api/shelf` — add confirmed/partial/unknown product; `PATCH /api/shelf/:id` — correct, timing, finished; `DELETE` or mark archived.
-`POST /api/extract` — photo/pasted INCI candidate with identity confidence, ingredient confidence, parsed INCI spans, normalization, source/method and errors. Does NOT save user product or return unreviewed safety verdicts.
+`POST /api/extract` — photo/pasted INCI candidate with identity confidence, ingredient confidence, parsed INCI spans, normalization, **format: rinse_off|leave_on|unknown**, source/method and errors. Does NOT save user product or return unreviewed safety verdicts. If format cannot be evidenced, return `unknown`; never default a scan to leave-on.
 `POST /api/mix` — two user products or evidence-backed candidate classes → versioned review verdict; unreviewed or unknown → insufficient evidence.
 `POST /api/rotas` — approved 7-day plan built from user's confirmed shelf and context; `GET /api/rotas/current`, `GET /api/rotas/:id` — ordered session snapshots and explanations. Require reviewed rule versions.
 `GET /api/today` — current user's skincare-day state using server IANA timezone and 04:00 rollover.
 `POST /api/completions` — idempotent { rotaId, skincareDate, session: 'am'|'pm'|'rest', idempotencyKey } → authoritative completion and derived streak status.
 `POST /api/rotas/:id/rescue` — idempotent { missedSkincareDate, idempotencyKey }, 48h eligibility enforced by server, distinct rescued marker, earned count unchanged.
+`POST /api/rotas/:id/rescue/decline` — idempotent dated decision that ends the hold early; does not erase the missed record.
 `POST /api/rotas/:id/swap-recovery` — snapshot-aware replacement, not automatic doubling.
 `POST /api/rotas/:id/reflect` — { feeling: 'calm'|'bit_irritated'|'very_irritated' }, idempotent; `POST /api/rotas/next` archives once.
-`POST /api/invites` — reusable opaque inviter token; `GET /i/[token]` public landing with safe display name; `POST /api/invites/:token/accept` — pair with current authenticated guest/user; no product disclosure.
-`GET /api/friends` — safe pair summaries (display name, qualifying completion, pair streak); `POST /api/friends/:id/nudge` is unnecessary for V1: open WhatsApp share locally using copy text, never assume user's contacts.
+`POST /api/invites` — reusable opaque inviter token; `GET /api/invites/:token` — public-safe preview only (status, inviter display name, safe streak summary); `GET /i/[token]` public landing; `POST /api/invites/:token/accept` — pair with current authenticated guest/user; no product disclosure.
+`GET /api/friends` — safe pair summaries (display name, qualifying completion, pair streak); `POST /api/friends/:pairId/seen` marks the current user's join-moment as seen. `POST /api/friends/:id/nudge` is unnecessary for V1: open WhatsApp share locally using copy text, never assume user's contacts.
 `POST /api/share` — privacy-safe share artifact/link; default identity/product names off; Mix can retain verified **active classes**, not guessed brands.
 `GET/PUT /api/reminders` — notification times, timezone, consent, push subscription (only after explicit permission and supported platform).
 `POST /api/account/merge` — server-controlled process after **proof of both identities**, idempotent and transactional. Don't expose a public arbitrary-user merge route. Integration mechanism may be auth callback rather than direct UI endpoint.
+`GET /api/account/claim-status` — current-session-only status for an in-flight/committed/failed claim; correlation ID is opaque and contains no identity or private-context data.
 
 ### Types and state boundary
 `ProductConfidence = 'verified'|'user_confirmed'|'partial'|'unknown'|'corrected'` is an **evidence dimension**, not a guarantee of safety.
@@ -44,6 +49,7 @@ Separate identityStatus from inciStatus; ingredient corrections stay local/provi
 `DayStatus = 'future'|'in_progress'|'complete'|'missed'|'rescued'|'rest_complete'`.
 `UserSkincareDate` is a plain YYYY-MM-DD plus IANA TZ and 04:00 rollover, not UTC calendar date.
 `Rota` and `DayRecord` immutable stable IDs; `ShareCard` always contains a target/deep link and a preview before posting.
+Reviewed timing rules must be able to express **minimum recovery spacing**, not only max uses/week. Next-week scheduling receives trailing prior-rota treatment history so the week boundary cannot create a spacing violation.
 
 ### Error and placeholder policy
 During parallel work, Claude Code may use a typed `MockRotaRepository` ***only for local development or Storybook-style previews*** behind a clear explicit `DEMO_MODE` flag. Never claim real invites, real OCR, real login, real pairing or production safety when using fixture data. Mock components should accept injected services via props/context, not import localStorage directly.
@@ -69,6 +75,7 @@ Review all **13 test scenarios** and 30-label benchmark in `CLAUDE.md`. UI must 
 npm install
 npm run typecheck
 npm run test:benchmark
+npm run test:domain   # once UI/domain branch is integrated
 npm run build
 ```
 Add targeted product-domain tests as needed, without altering infra ownership. Report manual/automated test evidence and screenshot parity, not declarations that something "works" unverified.
