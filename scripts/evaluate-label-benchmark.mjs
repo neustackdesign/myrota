@@ -33,6 +33,9 @@ let measured = 0;
 let latency = 0;
 const latencies = [];
 let cost = 0;
+let neuronMeasured = 0;
+let totalNeurons = 0;
+const neuronSamples = [];
 const issues = [];
 const seenIds = new Set();
 
@@ -73,6 +76,14 @@ for (const s of samples) {
     notRecoverable++;
     issues.push(`${s.id}: no correction path`);
   }
+  if (Number.isFinite(s.workers_ai_neurons) && s.workers_ai_neurons >= 0 &&
+      (s.workers_ai_neurons > 0 || s.workers_ai_used === false)) {
+    neuronMeasured++;
+    totalNeurons += s.workers_ai_neurons;
+    neuronSamples.push(s.workers_ai_neurons);
+  } else {
+    issues.push(`${s.id}: workers_ai_neurons missing or unverified`);
+  }
   if (Number.isFinite(s.latency_ms) && Number.isFinite(s.provider_cost_usd)) {
     measured++;
     latency += s.latency_ms;
@@ -82,6 +93,7 @@ for (const s of samples) {
 }
 
 latencies.sort((a, b) => a - b);
+neuronSamples.sort((a, b) => a - b);
 function percentile(sorted, fraction) {
   if (!sorted.length) return null;
   return sorted[Math.ceil(fraction * sorted.length) - 1];
@@ -96,7 +108,8 @@ const gate = {
   correctSku80Pct: count === 30 && identitiesCorrect >= 24,
   zeroUnflaggedOrConfidentlyWrong: overconfidentErrors === 0,
   allPartialUnknownRecoverable: notRecoverable === 0,
-  everySampleHasTimeAndCost: measured === 30
+  everySampleHasTimeAndCost: measured === 30,
+  everySampleHasMeasuredNeurons: neuronMeasured === 30
 };
 const result = {
   status: Object.values(gate).every(Boolean) ? "PASS" : "NOT_READY",
@@ -116,7 +129,13 @@ const result = {
     meanLatencyMs: measured ? Math.round(latency / measured) : null,
     medianLatencyMs: percentile(latencies, 0.5),
     p95LatencyMs: percentile(latencies, 0.95),
-    totalModelCostUsd: measured ? cost : null
+    totalModelCostUsd: measured ? cost : null,
+    neuronMeasuredCount: neuronMeasured,
+    totalWorkersAiNeurons: neuronMeasured ? totalNeurons : null,
+    meanWorkersAiNeuronsPerScan: neuronMeasured ? totalNeurons / neuronMeasured : null,
+    medianWorkersAiNeuronsPerScan: percentile(neuronSamples, 0.5),
+    p95WorkersAiNeuronsPerScan: percentile(neuronSamples, 0.95),
+    estimatedFreeScansPerDay: neuronMeasured === 30 && totalNeurons > 0 ? Math.floor(10000 / (totalNeurons / neuronMeasured)) : null
   },
   issues: issues.slice(0, 100)
 };
