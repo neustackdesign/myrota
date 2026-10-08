@@ -9,3 +9,9 @@ out
 .vercel
 coverage
 *.log
+.wrangler
+.dev.vars*
+dist
+.cloudflare
+.cloudflare/
+dist/
