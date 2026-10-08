@@ -1,10 +1,10 @@
-import { cloudflare } from "@cloudflare/vite-plugin";
-import vinext from "vinext";
 import { defineConfig } from "vite";
+import vinext from "vinext";
+import { cloudflare } from "@cloudflare/vite-plugin";
 
 /**
- * Cloudflare Vinext beta build alongside native Next.js config.
- * Original Next.js build is the control for regression testing.
+ * Current Vinext Cloudflare App Router setup (vinext 1.0.1).
+ * Keep native Next.js build in parallel as the compatibility control.
  */
 export default defineConfig({
   plugins: [
