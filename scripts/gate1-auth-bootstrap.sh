@@ -23,6 +23,16 @@ printf '%s\n' "$health"
 printf '%s' "$health" | node -e '
 let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const j=JSON.parse(s);if(j.database!=="connected"||j.live!==true)process.exit(1)})'
 
+# Repeating auth bootstrap must NEVER rotate a functioning Better Auth secret:
+# that would invalidate guest sessions and expose their saved Shelf to loss.
+if printf '%s' "$health" | node -e '
+let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const j=JSON.parse(s);if(j.auth!=="anonymous-ready")process.exit(1)})'
+then
+  echo "PASS: anonymous authentication is already configured. No secrets rotated."
+  echo "Preview-origin authorization and actual browser sign-in are separate tests."
+  exit 0
+fi
+
 echo
 echo "== Find or create Managed Turnstile widget =="
 widgets="$(npx --yes cf turnstile widgets list --filter "name:$WIDGET_NAME")"
