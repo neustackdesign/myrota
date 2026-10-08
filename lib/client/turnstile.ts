@@ -5,9 +5,10 @@
  * Auth cookies remain same-origin. Tokens are one-use, issued only after
  * explicit user interaction with a meaningful write.
  */
-type TurnstileApi = {
+export type TurnstileApi = {
   render: (el: HTMLElement, opts: Record<string, unknown>) => string;
   execute: (id: string) => void;
+  reset: (id: string) => void;
   remove: (id: string) => void;
 };
 declare global {
@@ -20,7 +21,7 @@ let pendingScript: Promise<TurnstileApi> | null = null;
 async function api(): Promise<TurnstileApi> {
   if (window.turnstile) return window.turnstile;
   if (!pendingScript) {
-    pendingScript = new Promise((resolve, reject) => {
+    pendingScript = new Promise<TurnstileApi>((resolve, reject) => {
       const script = document.createElement("script");
       script.src = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
       script.async = true;
@@ -33,7 +34,7 @@ async function api(): Promise<TurnstileApi> {
       throw error;
     });
   }
-  return pendingScript;
+  return pendingScript!;
 }
 
 export async function loadTurnstileToken(): Promise<string | null> {
