@@ -4,6 +4,7 @@ import { PwaRegister } from "@/components/pwa-register";
 import { DemoBar, ToastProvider } from "@/components/ui/primitives";
 import { FlowProvider } from "@/lib/client/flow";
 import { RuntimeProvider } from "@/lib/client/runtime";
+import { PUBLIC_MARKETING } from "@/lib/marketing/content";
 import "./globals.css";
 
 const faculty = Faculty_Glyphic({ weight: "400", subsets: ["latin"], variable: "--font-faculty-glyphic", display: "swap" });
@@ -11,9 +12,9 @@ const geist = Geist({ subsets: ["latin"], variable: "--font-geist", display: "sw
 const geistMono = Geist_Mono({ subsets: ["latin"], weight: ["400", "500"], variable: "--font-geist-mono", display: "swap" });
 
 export const metadata: Metadata = {
-  title: { default: "myrota — a seven-day rota from your own shelf", template: "%s · myrota" },
-  description: "Add the skincare you already own. Get a seven-day morning and evening rota, follow it, and keep a streak with a friend.",
-  applicationName: "myrota",
+  title: { default: PUBLIC_MARKETING.seo.title, template: PUBLIC_MARKETING.seo.titleTemplate },
+  description: PUBLIC_MARKETING.seo.description,
+  applicationName: PUBLIC_MARKETING.seo.applicationName,
   icons: { icon: "/icons/icon-192.png", apple: "/icons/apple-touch-icon.png" },
   appleWebApp: { capable: true, title: "myrota", statusBarStyle: "default" },
 };
