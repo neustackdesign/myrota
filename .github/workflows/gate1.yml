@@ -33,6 +33,9 @@ jobs:
       - name: Account-merge isolation tests
         run: npm run test:merge
 
+      - name: Generate Better Auth SQLite schema
+        run: npm run auth:schema
+
       - name: Generate D1 SQLite schema migrations
         run: npm run db:generate
 
