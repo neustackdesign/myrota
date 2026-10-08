@@ -1,0 +1,12 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "myrota",
+  "compatibility_date": "2026-10-08",
+  "compatibility_flags": ["nodejs_compat"],
+  "main": "vinext/server/app-router-entry",
+  "preview_urls": true,
+  "assets": {
+    "not_found_handling": "none"
+  }
+  // No fabricated D1 binding. Add binding after owner creates D1 and returns UUID.
+}
