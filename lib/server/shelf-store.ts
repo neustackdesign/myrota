@@ -136,3 +136,70 @@ export async function addShelfProduct(ownerUserId: string, input: unknown) {
   if (!row) throw new Error("insert_failed");
   return shelfRowToProduct(row);
 }
+
+
+/** Ownership enforced in the SQL predicate, including updates and deletes. */
+export async function updateShelfProduct(ownerUserId: string, id: string, input: unknown) {
+  if (!input || typeof input !== "object" || Array.isArray(input)) throw new Error("validation:patch");
+  const patch = input as Record<string, unknown>;
+  const db = (await bindings()).DB;
+  const previous = await db.prepare("SELECT * FROM shelf_items WHERE id = ? AND owner_user_id = ?")
+    .bind(id, ownerUserId).first<ShelfRow>();
+  if (!previous) return null;
+
+  const brand = patch.brand === undefined ? previous.brand : str(patch.brand, 120);
+  const name = patch.name === undefined ? previous.product_name : str(patch.name, 180, true);
+  const category = patch.category === undefined ? previous.product_type : str(patch.category, 40, true);
+  const format = patch.format === undefined ? previous.product_format : str(patch.format, 40, true);
+  if (!CATEGORY.has(category) || !FORMAT.has(format)) throw new Error("validation:enum");
+
+  if (patch.finished !== undefined && typeof patch.finished !== "boolean") throw new Error("validation:finished");
+  const finishedAt = patch.finished === undefined
+    ? previous.finished_at
+    : patch.finished ? new Date().toISOString() : null;
+  const evidence = safeObject(previous.evidence_json);
+  if (patch.placement !== undefined) {
+    if (!["am", "pm", "none"].includes(String(patch.placement))) throw new Error("validation:placement");
+    evidence.placement = patch.placement;
+  }
+
+  const ingredients = safeArray(previous.inci_json);
+  let inciStatus = previous.ingredient_confidence;
+  if (patch.ingredientCorrections !== undefined) {
+    if (!Array.isArray(patch.ingredientCorrections) || patch.ingredientCorrections.length > 200) throw new Error("validation:corrections");
+    const corrected = patch.ingredientCorrections as unknown[];
+    for (const item of corrected) {
+      if (!item || typeof item !== "object") throw new Error("validation:correction");
+      const change = item as Record<string, unknown>;
+      const ingredientId = str(change.ingredientId, 120, true);
+      if (change.text !== null && (typeof change.text !== "string" || change.text.length > 200)) throw new Error("validation:correction_text");
+      const index = ingredients.findIndex((v) => typeof v === "object" && v !== null && (v as Record<string, unknown>).id === ingredientId);
+      if (index < 0) throw new Error("validation:ingredient_not_found");
+      if (change.text === null) ingredients.splice(index, 1);
+      else ingredients[index] = { id: ingredientId, text: (change.text as string).trim(), status: "corrected", activeClass: null, normalized: null, flagged: false };
+    }
+    inciStatus = ingredients.length ? "corrected" : "unknown";
+  }
+  if (JSON.stringify(ingredients).length > 64_000) throw new Error("validation:ingredients");
+  const identityStatus = (brand !== previous.brand || name !== previous.product_name)
+    ? "corrected" : previous.identity_confidence;
+  const now = new Date().toISOString();
+  await db.prepare(
+    `UPDATE shelf_items SET brand = ?, product_name = ?, product_type = ?, product_format = ?,
+     identity_confidence = ?, ingredient_confidence = ?, inci_json = ?, evidence_json = ?,
+     finished_at = ?, updated_at = ? WHERE id = ? AND owner_user_id = ?`
+  ).bind(
+    brand, name, category, format, identityStatus, inciStatus, JSON.stringify(ingredients),
+    JSON.stringify(evidence), finishedAt, now, id, ownerUserId
+  ).run();
+  const updated = await db.prepare("SELECT * FROM shelf_items WHERE id = ? AND owner_user_id = ?")
+    .bind(id, ownerUserId).first<ShelfRow>();
+  return updated ? shelfRowToProduct(updated) : null;
+}
+
+export async function deleteShelfProduct(ownerUserId: string, id: string) {
+  const db = (await bindings()).DB;
+  const result = await db.prepare("DELETE FROM shelf_items WHERE id = ? AND owner_user_id = ?")
+    .bind(id, ownerUserId).run();
+  return (result.meta?.changes ?? 0) > 0;
+}
