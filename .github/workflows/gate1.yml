@@ -53,8 +53,10 @@ jobs:
           path: db/generated-migrations/
           retention-days: 5
 
-      - name: Validate guarded remote-apply script syntax
-        run: bash -n scripts/gate1-apply-d1.sh
+      - name: Validate guarded scripts
+        run: |
+          bash -n scripts/gate1-apply-d1.sh
+          bash -n scripts/gate1-deploy.sh
 
       - name: Verify guarded script resolves the bound D1 UUID
         run: |
