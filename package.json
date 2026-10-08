@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "test:benchmark": "node --test tests/ingestion-benchmark.test.mjs"
+    "test:benchmark": "node --test tests/ingestion-benchmark.test.mjs",
+    "test:domain": "tsc -p tsconfig.domain-test.json && node scripts/run-domain-tests.mjs"
   },
   "dependencies": {
     "next": "16.3.8",
