@@ -454,3 +454,15 @@ img { max-width: 100%; display: block; }
   }
   .landing-copy { padding: 40px clamp(28px, 4vw, 52px); }
 }
+
+/* Landing photo: preserve the editorial split on desktop without pushing the
+   primary action beneath an oversized mobile photography panel. */
+@media (max-width: 899px) {
+  .landing-art { flex: none !important; min-height: 0 !important; padding-bottom: 16px; }
+  .landing-photo { height: clamp(220px, 46svh, 420px) !important; min-height: 0 !important; aspect-ratio: auto !important; }
+  .landing-copy { padding-top: 26px !important; }
+}
+@media (min-width: 900px) {
+  .landing-main { min-height: min(760px, calc(100dvh - 48px)); }
+  .landing-photo { min-height: 0; }
+}
