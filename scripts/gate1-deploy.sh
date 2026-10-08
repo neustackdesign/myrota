@@ -10,20 +10,24 @@ if [[ "$branch" != "$EXPECTED_BRANCH" ]]; then
   exit 2
 fi
 
-actual_id="$(sed -n 's/.*"database_id"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' wrangler.jsonc | head -n 1)"
+actual_id="$(sed -n 's/.*"database_id"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' wrangler.d1.jsonc | head -n 1)"
 if [[ "$actual_id" != "$EXPECTED_DB_ID" ]]; then
   echo "Refusing deploy: bound D1 UUID does not match dedicated WEUR myrota DB." >&2
   exit 3
 fi
 
-echo "== Cloudflare identity =="
+echo "== Wrangler identity / account =="
 npx wrangler whoami
 
-if [[ ! -d node_modules ]]; then
-  echo
-  echo "== Installing infra dependencies without creating the final integration lockfile =="
-  npm install --package-lock=false
-fi
+echo
+echo "== Current Vinext Cloudflare config =="
+test -f cloudflare.config.ts
+grep -q 'entrypoint: "vinext/server/fetch-handler"' cloudflare.config.ts
+grep -q 'DB: bindings.d1({ name: "myrota" })' cloudflare.config.ts
+
+echo
+echo "== Installing current infra dependencies without creating the final integration lockfile =="
+npm install --package-lock=false
 
 echo
 echo "== Vinext production build (DEMO explicitly off) =="
