@@ -7,6 +7,12 @@
   "preview_urls": true,
   "assets": {
     "not_found_handling": "none"
-  }
-  // No fabricated D1 binding. Add binding after owner creates D1 and returns UUID.
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "myrota",
+      "database_id": "7992c70c-171b-4a03-8b8f-e88d1fcba9c8"
+    }
+  ]
 }
