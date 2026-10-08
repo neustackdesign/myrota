@@ -1,19 +1,8 @@
 "use client";
 
 import { useRef, useState } from "react";
+import type { TurnstileApi } from "@/lib/client/turnstile";
 
-type TurnstileApi = {
-  render: (el: HTMLElement, options: Record<string, unknown>) => string;
-  execute: (id: string) => void;
-  reset: (id: string) => void;
-  remove: (id: string) => void;
-};
-
-declare global {
-  interface Window {
-    turnstile?: TurnstileApi;
-  }
-}
 
 let scriptPromise: Promise<TurnstileApi> | null = null;
 function loadTurnstile() {
