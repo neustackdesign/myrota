@@ -9,3 +9,6 @@ out
 .vercel
 coverage
 *.log
+.wrangler
+.dev.vars*
+dist
