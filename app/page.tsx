@@ -14,13 +14,13 @@ export default function LandingPage() {
   const { update } = useFlow();
   const me = useResource((repo) => repo.me());
   return (
-    <div className="app-frame app-frame--pearl app-frame--wide">
-      <main id="main" className="app-main split">
-        <section className="grain grain--sunrise" style={{ padding: "calc(28px + env(safe-area-inset-top)) 16px 0", display: "flex", flexDirection: "column", gap: 18 }} aria-label="myrota">
+    <div className="app-frame app-frame--pearl app-frame--wide landing-frame">
+      <main id="main" className="app-main split landing-main">
+        <section className="grain grain--sunrise landing-art" aria-label="myrota">
           <div style={{ paddingLeft: 8 }}><Wordmark size={30} /></div>
-          <PhotoSlot asset={copy.heroAsset} style={{ width: "100%", maxHeight: 460 }} />
+          <PhotoSlot asset={copy.heroAsset} className="landing-photo" />
         </section>
-        <section className="pad stack screen-enter" style={{ padding: "22px 24px calc(24px + env(safe-area-inset-bottom))", ["--gap" as string]: "12px", justifyContent: "center" }}>
+        <section className="pad stack screen-enter landing-copy" style={{ ["--gap" as string]: "12px" }}>
           <h1 className="t-display t-hero">{copy.heading}</h1>
           <p className="t-lede t-muted">{copy.description}</p>
           <div className="stack center" style={{ marginTop: 16, ["--gap" as string]: "8px" }}>
