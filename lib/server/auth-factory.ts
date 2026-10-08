@@ -33,6 +33,44 @@ export interface AuthFactoryOptions {
   }) => Promise<void>;
 }
 
+
+/**
+ * Better Auth handles its own API failures, so the outer Next route catch is
+ * insufficient for diagnosing anonymous sign-in failures. Keep the exception
+ * inside Workers Logs, NEVER in the HTTP response.
+ */
+function reportAuthFailure(error: unknown): void {
+  const e = error instanceof Error ? error : new Error("Unknown auth error");
+  // SQL exceptions may include user input, credentials or cookies. Do not emit
+  // free-form SQL or error stacks into persistent logs.
+  const raw = e.message;
+  const category = /no such table|no such column|SQLITE|D1_ERROR|database/i.test(raw)
+    ? "database"
+    : /origin|csrf|trusted|host/i.test(raw)
+      ? "origin-or-csrf"
+      : /secret|session|cookie|sign/i.test(raw)
+        ? "session-or-secret"
+        : "other";
+  // Technical clues stay only in Worker Logs and are aggressively redacted.
+  const technicalSummary = raw
+    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "<email>")
+    .replace(/(authorization|cookie|password|secret|token|api[_ -]?key)\s*[:=]\s*[^\s,;]+/gi, "$1=<redacted>")
+    .replace(/(['"`])[^'"`\n]{1,160}\1/g, "<quoted-value>")
+    .replace(/\b[A-Za-z0-9_-]{48,}\b/g, "<long-value>")
+    .slice(0, 220);
+  console.error("[myrota.auth.internal]", {
+    technicalSummary,
+    name: e.name.slice(0, 80),
+    category,
+    // Whitelisted error patterns only, not raw SQL or user data.
+    hint: /no such column/i.test(raw) ? "missing-column"
+      : /no such table/i.test(raw) ? "missing-table"
+      : /constraint failed|UNIQUE constraint/i.test(raw) ? "constraint"
+      : /not implemented|unsupported/i.test(raw) ? "unsupported"
+      : "inspect-local-repro",
+  });
+}
+
 export function createMyrotaAuth(options: AuthFactoryOptions) {
   if (!options.secret || options.secret.length < 32) {
     throw new Error("Better Auth requires a strong server secret");
@@ -46,7 +84,64 @@ export function createMyrotaAuth(options: AuthFactoryOptions) {
   }
 
   return betterAuth({
+    onAPIError: {
+      onError: (error) => reportAuthFailure(error),
+    },
+    logger: {
+      level: "error",
+      disabled: false,
+      // Capture internal Better Auth errors without storing arbitrary
+      // arguments which may contain credentials or request payloads.
+      log: (level, _message, ...args) => {
+        if (level === "error") {
+          const error = args.find((arg) => arg instanceof Error);
+          reportAuthFailure(error ?? new Error("Better Auth reported an error"));
+        }
+      },
+    },
     database: options.db,
+    // The live 0001 D1 migration was generated with Drizzle snake_case
+    // column names. The native Better Auth D1/Kysely adapter otherwise
+    // expects camelCase and rejects anonymous sign-in with SCHEMA_MISMATCH.
+    // Keep the EXISTING database untouched; map every renamed core field.
+    user: {
+      fields: {
+        emailVerified: "email_verified",
+        createdAt: "created_at",
+        updatedAt: "updated_at",
+      },
+    },
+    session: {
+      fields: {
+        userId: "user_id",
+        expiresAt: "expires_at",
+        createdAt: "created_at",
+        updatedAt: "updated_at",
+        ipAddress: "ip_address",
+        userAgent: "user_agent",
+      },
+    },
+    account: {
+      fields: {
+        accountId: "account_id",
+        providerId: "provider_id",
+        userId: "user_id",
+        accessToken: "access_token",
+        refreshToken: "refresh_token",
+        idToken: "id_token",
+        accessTokenExpiresAt: "access_token_expires_at",
+        refreshTokenExpiresAt: "refresh_token_expires_at",
+        createdAt: "created_at",
+        updatedAt: "updated_at",
+      },
+    },
+    verification: {
+      fields: {
+        expiresAt: "expires_at",
+        createdAt: "created_at",
+        updatedAt: "updated_at",
+      },
+    },
     secret: options.secret,
     baseURL: options.appUrl,
     trustedOrigins: options.trustedOrigins,
@@ -59,6 +154,8 @@ export function createMyrotaAuth(options: AuthFactoryOptions) {
       : {},
     plugins: [
       anonymous({
+        // Match the anonymous-plugin-owned field to the same 0001 migration.
+        schema: { user: { fields: { isAnonymous: "is_anonymous" } } },
         // Gate 1: never let Better Auth automatically delete the guest.
         // We explicitly retire it only after the D1 merge batch is verified.
         disableDeleteAnonymousUser: true,

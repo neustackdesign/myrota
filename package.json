@@ -19,7 +19,8 @@
     "test:merge": "node --experimental-strip-types --test tests/claim-merge.test.mjs",
     "auth:schema": "npx auth@1.6.0 generate --adapter drizzle --dialect sqlite --config ./lib/server/auth-schema-config.ts --output ./db/auth-schema.ts --yes",
     "start:vinext": "vite preview",
-    "deploy:vinext": "vinext-cloudflare deploy"
+    "deploy:vinext": "vinext-cloudflare deploy",
+    "test:domain": "tsc -p tsconfig.domain-test.json && node scripts/run-domain-tests.mjs"
   },
   "dependencies": {
     "next": "16.3.8",

@@ -2,7 +2,7 @@ name: Cloudflare Gate 1 preflight
 
 on:
   push:
-    branches: [infra/cloudflare-gate1]
+    branches: [infra/cloudflare-gate1, feat/pilot-backend-d1]
   workflow_dispatch:
 
 permissions:
@@ -33,6 +33,9 @@ jobs:
       - name: Account-merge isolation tests
         run: npm run test:merge
 
+      - name: Core product scenario regressions
+        run: npm run test:domain
+
       - name: Generate Better Auth SQLite schema
         run: npm run auth:schema
 
@@ -58,6 +61,9 @@ jobs:
           bash -n scripts/gate1-apply-d1.sh
           bash -n scripts/gate1-deploy.sh
           bash -n scripts/gate1-auth-bootstrap.sh
+          bash -n scripts/pilot-migrate-deploy.sh
+          bash -n scripts/pilot-allow-preview.sh
+          bash -n scripts/diagnose-live-auth.sh
 
       - name: Verify guarded script resolves the bound D1 UUID
         run: |
@@ -82,6 +88,8 @@ jobs:
           grep -q '"verification"' /tmp/myrota-d1-tables.txt
           grep -q '"shelf_items"' /tmp/myrota-d1-tables.txt
           grep -q '"account_merge_jobs"' /tmp/myrota-d1-tables.txt
+          grep -q '"rota_snapshots"' /tmp/myrota-d1-tables.txt
+          grep -q '"day_records"' /tmp/myrota-d1-tables.txt
 
       - name: Vinext compatibility probe
         run: npx vinext check
@@ -105,3 +113,36 @@ jobs:
           health="$(curl -s -o /tmp/health.json -w '%{http_code}' http://127.0.0.1:4173/api/health || true)"
           test "$health" != "404"
           cat /tmp/health.json
+          echo
+          echo '--- real pasted INCI response ---'
+          curl --fail-with-body --silent --show-error -H 'content-type: application/json' \
+            -d '{"method":"paste","side":"back","pastedText":"Ingredients: Aqua, Glycerin, Niacinamide"}' \
+            http://127.0.0.1:4173/api/extract | tee /tmp/extract.json
+          node -e 'const j=require("/tmp/extract.json"); if(!j.ok||j.candidate.format!==null||j.candidate.inciStatus!=="partial"||j.candidate.identityStatus!=="unknown"||j.candidate.ingredients.length!==3||j.candidate.ingredients.some(x=>x.activeClass))process.exit(1)'
+          echo
+          echo '--- no false product-library matches ---'
+          curl --fail-with-body --silent --show-error http://127.0.0.1:4173/api/catalogue?q=serum | tee /tmp/catalogue.json
+          node -e 'const j=require("/tmp/catalogue.json");if(!Array.isArray(j.results)||j.results.length)process.exit(1)'
+          echo
+          echo '--- no unreviewed compatibility claims ---'
+          curl --fail-with-body --silent --show-error -H 'content-type: application/json' \
+            -d '{"a":{"kind":"unknown","name":"Product A"},"b":{"kind":"unknown","name":"Product B"}}' \
+            http://127.0.0.1:4173/api/mix | tee /tmp/mix.json
+          node -e 'const j=require("/tmp/mix.json");if(j.result.verdict!=="insufficient_evidence")process.exit(1)'
+          echo
+          echo '--- guest-data endpoints cannot leak without a session ---'
+          shelf_code="$(curl --silent -o /tmp/shelf-no-session.json -w '%{http_code}' http://127.0.0.1:4173/api/shelf)"
+          test "$shelf_code" = "401"
+          today_code="$(curl --silent -o /tmp/today-no-session.json -w '%{http_code}' http://127.0.0.1:4173/api/today)"
+          test "$today_code" = "401"
+          echo '--- guest cannot be created without a verified Turnstile token ---'
+          guest_code="$(curl --silent -o /tmp/guest-no-turnstile.json -w '%{http_code}' \
+            -H 'content-type: application/json' -d '{}' http://127.0.0.1:4173/api/auth/sign-in/anonymous)"
+          [[ "$guest_code" = "400" || "$guest_code" = "503" ]]
+          echo '--- claim disabled until verified data merge ---'
+          claim_code="$(curl --silent -o /tmp/claim.json -w '%{http_code}' -H 'content-type: application/json' \
+            -d '{"provider":"google"}' http://127.0.0.1:4173/api/auth/sign-in/social)"
+          test "$claim_code" = "501"
+          echo '--- public sign-in methods are correctly disabled ---'
+          node -e 'const j=require("/tmp/config.json");if(j.providers.google!==false||j.providers.emailOtp!==false||j.providers.apple!==false)process.exit(1)'
+
