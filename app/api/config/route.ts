@@ -1,7 +1,7 @@
 import { bindings } from "@/lib/server/cloudflare-env";
 
 export async function GET() {
-  const e = bindings();
+  const e = await bindings();
   return Response.json(
     {
       providers: {
