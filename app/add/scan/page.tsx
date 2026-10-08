@@ -128,7 +128,7 @@ function Scan() {
                   <p className="t-body t-muted">
                     {side === "front"
                       ? "We only need the front when we couldn't read the name."
-                      : "The ingredient list tells us more than the name. We use your camera only while this screen is open. Photos are read, then discarded."}
+                      : DEMO_MODE ? "The ingredient list tells us more than the name. In this labelled demo, photo analysis is simulated." : "Photo reading is not connected yet. You can paste the ingredients or add the product manually. We will not pretend a photo was analysed."}
                   </p>
                 </>
               )}

@@ -109,6 +109,8 @@ export interface ExtractionCandidate {
   brand: string | null;
   name: string | null;
   category: ProductCategory | null;
+  /** Format must be evidenced or explicitly unknown; never default to leave-on. */
+  format: ProductFormat | null;
   identityStatus: EvidenceStatus;
   inciStatus: EvidenceStatus;
   identityKey: string | null;

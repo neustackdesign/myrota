@@ -52,6 +52,8 @@ export function createHttpRepository(options: HttpRepositoryOptions = {}): RotaR
 
   async function request<T>(method: string, path: string, body?: unknown, init: { auth?: boolean; raw?: BodyInit; headers?: Record<string, string> } = {}): Promise<T> {
     const headers: Record<string, string> = { Accept: "application/json", ...init.headers };
+    // Product day boundaries are per-user at 04:00 in the user's IANA timezone.
+    if (typeof Intl !== "undefined") headers["x-myrota-time-zone"] = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
     if (body !== undefined && !init.raw) headers["Content-Type"] = "application/json";
     if (init.auth && options.captchaToken) {
       const token = await options.captchaToken();
@@ -143,8 +145,9 @@ export function createHttpRepository(options: HttpRepositoryOptions = {}): RotaR
       (await write<{ product: ShelfProduct }>("PATCH", `/api/shelf/${encodeURIComponent(id)}`, patch)).product,
     removeProduct: (id) => write("DELETE", `/api/shelf/${encodeURIComponent(id)}`),
     searchCatalogue: (q) => request("GET", `/api/catalogue?q=${encodeURIComponent(q)}`),
+    // Reading a label is exploration, not a write: do not prompt for an
+    // anonymous session or a Turnstile challenge until saving to the Shelf.
     extract: async (req: ExtractRequest, image?: Blob) => {
-      await ensureSession();
       if (image) {
         const form = new FormData();
         form.set("method", req.method);

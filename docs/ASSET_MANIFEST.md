@@ -2,19 +2,19 @@
 
 Status 8 Oct 2026. Source of truth for production imagery, brand vectors and copy that still needs rights or review. Mirrors `lib/assets/manifest.ts`. **No unlicensed or competitor imagery is used anywhere.** A photo slot renders its image only when its entry is marked `licensed` with a `src`; otherwise the UI shows an explicit, plated "Missing licensed asset" state.
 
-## 1. Photography — production dependency (all MISSING)
+## 1. Photography — sourced pilot imagery (9 Oct 2026)
 
-Brief for every photo (Component System v1.2): prominently African and darker-skin people, real texture, natural or warm daylight, no retouching that removes pores or tone variation. Minimum 2400px long edge, sRGB. Faces clear of the bottom 20%, where plates sit. Rights: commissioned or licensed for **web, social and paid use**, with **signed model releases**. Record the licence and expiry for each asset.
+Production pilot uses Pexels-hosted photographs with creator and source URLs recorded in `lib/assets/manifest.ts`. These are provisional art-direction selections, not commissioned photography. Pexels permits free commercial use; do not imply the subjects endorse myrota. CDN accessibility, final crop and colour grading must be tested in Vercel Preview. Avoid unverified claims of individual signed model releases.
 
-| ID | Expected file (`public/photos/`) | Used on | Aspect / crop | Rights | Status |
-|---|---|---|---|---|---|
-| PH-01 | `landing-hero-4x5.jpg` | Landing `/` | 4:5 portrait; face in upper 60% | needs licence + model release | **Missing** |
-| PH-02 | `invite-friends-4x5.jpg` | Invite landing `/i/[token]` | 4:5; two faces upper 60%; inviter chip top-left | needs licence + 2 releases | **Missing** |
-| PH-03 | `rota-complete-4x5.jpg` | Rota complete `/week/complete` | 4:5; subject left of centre; ring disc overlaps bottom-right | needs licence + release | **Missing** |
-| PH-04 | `share-story-9x16.jpg` | Optional 9:16 share background | 9:16; faces clear of bottom 20% | social + paid use | **Missing** (cards currently use brand fields only) |
-| PH-05 | `og-1200x630.jpg` | OG / link preview | 1.91:1; subject right third | social use | **Missing** |
+| ID | Placement | Pexels photograph | Creator |
+|---|---|---|---|
+| PH-01 | Landing hero | https://www.pexels.com/photo/7269486/ | Anete Lusina |
+| PH-02 | Friends invite | https://www.pexels.com/photo/6579978/ | Alex Starnes |
+| PH-03 | Week-complete milestone | https://www.pexels.com/photo/5938600/ | Sora Shimazaki |
+| PH-04 | Story background | https://www.pexels.com/photo/7269467/ | Anete Lusina |
+| PH-05 | OG candidate | https://www.pexels.com/photo/5938589/ | Sora Shimazaki |
 
-To activate: add the file, then set `rights: "licensed"`, `src`, `licence` and `expires` in `lib/assets/manifest.ts`.
+**Caveat:** PH-05 is now wired into Open Graph and Twitter metadata in `app/layout.tsx`, but the final branded horizontal crop must be visually tested; PH-04 remains an optional share-card background, not automatically exported. Hosted images should be downloaded, optimised and self-hosted in a later asset packaging pass to avoid third-party CDN runtime dependence. Retna candidate: Salem Ochidi's dark-skin beauty portrait (https://retna.io/photos/a-nerdy-beauty-portrait-of-a-dark-skinned-model-with-beautiful-bokeh-QOPlNf); direct asset download has not been confirmed, so do not mark it as shipped.
 
 ## 2. Brand vectors — PROVISIONAL re-draws
 
