@@ -17,7 +17,9 @@ function makeSamples() {
     all_material_misses_flagged: true,
     review_recoverable: true,
     latency_ms: 1200,
-    provider_cost_usd: 0.001
+    provider_cost_usd: 0.001,
+    workers_ai_used: true,
+    workers_ai_neurons: 50
   }));
 }
 function evaluate(samples) {
@@ -65,4 +67,18 @@ test("recall below 90 percent fails", () => {
   const result = evaluate(samples);
   assert.equal(result.status, 1);
   assert.equal(result.output.gate.legibleActiveRecall90Pct, false);
+});
+
+test("missing Workers AI neuron measurement fails gate even if extraction is correct", () => {
+  const samples = makeSamples();
+  delete samples[0].workers_ai_neurons;
+  const result = evaluate(samples);
+  assert.equal(result.status, 1);
+  assert.equal(result.output.gate.everySampleHasMeasuredNeurons, false);
+});
+
+test("benchmark computes total neurons and daily estimate without pretending these are real scans", () => {
+  const result = evaluate(makeSamples());
+  assert.equal(result.output.metrics.totalWorkersAiNeurons, 1500);
+  assert.equal(result.output.metrics.estimatedFreeScansPerDay, 200);
 });
