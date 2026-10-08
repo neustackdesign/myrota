@@ -42,6 +42,14 @@ async function handle(request: Request) {
   } catch (error) {
     const message = error instanceof Error ? error.message : "Authentication unavailable";
     const expectedConfig = /not configured|not enabled|binding missing/i.test(message);
+    // Keep sensitive exception details in the Worker runtime logs only.
+    // Do not log request bodies, cookies, CAPTCHA tokens or credentials.
+    console.error("[myrota.auth] request failed", {
+      route: new URL(request.url).pathname,
+      method: request.method,
+      errorName: error instanceof Error ? error.name : "UnknownError",
+      errorMessage: message.slice(0, 350),
+    });
     return jsonError(expectedConfig ? 503 : 500, expectedConfig ? message : "Authentication unavailable");
   }
 }
