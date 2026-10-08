@@ -40,6 +40,8 @@ jobs:
           path: db/migrations/
           retention-days: 5
 
-      - name: Vinext compatibility probe (beta tool — output is diagnostic)
-        continue-on-error: true
-        run: npx --yes vinext check
+      - name: Vinext compatibility probe
+        run: npx vinext check
+
+      - name: Vinext production build (beta)
+        run: npm run build:vinext
