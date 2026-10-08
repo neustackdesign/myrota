@@ -1,0 +1,107 @@
+name: Cloudflare Gate 1 preflight
+
+on:
+  push:
+    branches: [infra/cloudflare-gate1]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Install Node dependencies
+        run: npm install
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Existing Next.js build (must remain green)
+        run: npm run build
+
+      - name: Benchmark evaluator tests
+        run: npm run test:benchmark
+
+      - name: Account-merge isolation tests
+        run: npm run test:merge
+
+      - name: Generate Better Auth SQLite schema
+        run: npm run auth:schema
+
+      - name: Generate D1 SQLite schema migrations
+        run: npm run db:generate
+
+      - name: Print generated auth schema and SQL for review
+        run: |
+          echo '--- db/auth-schema.ts ---'
+          cat db/auth-schema.ts
+          echo '--- generated SQL ---'
+          cat db/generated-migrations/*.sql
+
+      - name: Save generated D1 schema migration for review
+        uses: actions/upload-artifact@v4
+        with:
+          name: d1-gate1-generated-migrations
+          path: db/generated-migrations/
+          retention-days: 5
+
+      - name: Validate guarded scripts
+        run: |
+          bash -n scripts/gate1-apply-d1.sh
+          bash -n scripts/gate1-deploy.sh
+          bash -n scripts/gate1-auth-bootstrap.sh
+
+      - name: Verify guarded script resolves the bound D1 UUID
+        run: |
+          ACTUAL="$(sed -n 's/.*"database_id"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' wrangler.d1.jsonc | head -n 1)"
+          test "$ACTUAL" = "7992c70c-171b-4a03-8b8f-e88d1fcba9c8"
+
+      - name: Validate current Turnstile create contract and Wrangler secret command
+        run: |
+          npx --yes cf turnstile widgets create --dry-run --body '{"name":"myrota-auth","domains":["myrota.neustackdesign.workers.dev","localhost"],"mode":"managed","region":"world"}' | tee /tmp/turnstile-dry-run.txt
+          grep -q '"mode": "managed"' /tmp/turnstile-dry-run.txt
+          npx wrangler secret bulk --help | grep -q 'Create, update, or delete multiple secrets'
+
+      - name: Apply reviewed D1 migrations to local database
+        run: npx wrangler d1 migrations apply myrota --local --config wrangler.d1.jsonc
+
+      - name: Verify local D1 initial schema
+        run: |
+          npx wrangler d1 execute myrota --local --config wrangler.d1.jsonc --command "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name;" | tee /tmp/myrota-d1-tables.txt
+          grep -q '"user"' /tmp/myrota-d1-tables.txt
+          grep -q '"session"' /tmp/myrota-d1-tables.txt
+          grep -q '"account"' /tmp/myrota-d1-tables.txt
+          grep -q '"verification"' /tmp/myrota-d1-tables.txt
+          grep -q '"shelf_items"' /tmp/myrota-d1-tables.txt
+          grep -q '"account_merge_jobs"' /tmp/myrota-d1-tables.txt
+
+      - name: Vinext compatibility probe
+        run: npx vinext check
+
+      - name: Vinext production build (beta)
+        run: npm run build:vinext
+
+      - name: Smoke Vinext route handlers locally before any remote deploy
+        run: |
+          set -euo pipefail
+          npm run start:vinext -- --host 127.0.0.1 --port 4173 > /tmp/myrota-vinext-preview.log 2>&1 &
+          pid=$!
+          trap 'kill "$pid" || true; cat /tmp/myrota-vinext-preview.log' EXIT
+          for i in $(seq 1 30); do
+            code="$(curl -s -o /tmp/config.json -w '%{http_code}' http://127.0.0.1:4173/api/config || true)"
+            if [ "$code" = "200" ]; then break; fi
+            sleep 1
+          done
+          test "$code" = "200"
+          cat /tmp/config.json
+          health="$(curl -s -o /tmp/health.json -w '%{http_code}' http://127.0.0.1:4173/api/health || true)"
+          test "$health" != "404"
+          cat /tmp/health.json
