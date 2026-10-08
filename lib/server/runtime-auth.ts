@@ -9,7 +9,7 @@ function allowedOrigins(workerOrigin: string, csv?: string): string[] {
     const parsed = new URL(value);
     const isLocal = parsed.protocol === "http:" && parsed.hostname === "localhost";
     if (!isLocal && parsed.protocol !== "https:") throw new Error("Invalid trusted origin");
-    if (parsed.origin !== value.replace(/\\/$/, "")) throw new Error("Trusted origin must be a bare origin");
+    if (parsed.origin !== value.replace(/\/$/, "")) throw new Error("Trusted origin must be a bare origin");
     origins.add(parsed.origin);
   }
   return [...origins];
