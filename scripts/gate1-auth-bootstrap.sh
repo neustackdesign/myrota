@@ -70,6 +70,10 @@ echo "== Install Worker secrets and deploy them immediately =="
 npx wrangler secret bulk "$tmp" --name myrota
 
 echo
+echo "== Deploy current Gate 1 harness with secrets preserved =="
+npx --yes @vinext/cloudflare deploy
+
+echo
 echo "== Verify live auth readiness =="
 health="$(curl --fail-with-body --silent --show-error "$LIVE_URL/api/health")"
 config="$(curl --fail-with-body --silent --show-error "$LIVE_URL/api/config")"
