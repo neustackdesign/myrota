@@ -4,7 +4,7 @@ const REQUIRED_TABLES = ["user", "session", "account", "verification", "shelf_it
 
 export async function GET() {
   try {
-    const e = bindings();
+    const e = await bindings();
     const result = await e.DB.prepare(
       "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('user','session','account','verification','shelf_items','account_merge_jobs')"
     ).all<{ name: string }>();
