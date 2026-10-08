@@ -145,8 +145,9 @@ export function createHttpRepository(options: HttpRepositoryOptions = {}): RotaR
       (await write<{ product: ShelfProduct }>("PATCH", `/api/shelf/${encodeURIComponent(id)}`, patch)).product,
     removeProduct: (id) => write("DELETE", `/api/shelf/${encodeURIComponent(id)}`),
     searchCatalogue: (q) => request("GET", `/api/catalogue?q=${encodeURIComponent(q)}`),
+    // Reading a label is exploration, not a write: do not prompt for an
+    // anonymous session or a Turnstile challenge until saving to the Shelf.
     extract: async (req: ExtractRequest, image?: Blob) => {
-      await ensureSession();
       if (image) {
         const form = new FormData();
         form.set("method", req.method);
