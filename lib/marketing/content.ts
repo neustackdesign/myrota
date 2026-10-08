@@ -11,14 +11,14 @@ export const PUBLIC_MARKETING = {
     title: "myrota — a seven-day rota from your own shelf",
     titleTemplate: "%s · myrota",
     description:
-      "Add the skincare you already own. Get a seven-day morning and evening rota, follow it, and keep a streak with a friend.",
+      "Turn the skincare you already own into a seven-day morning and evening plan, and follow it one day at a time.",
     applicationName: "myrota",
   },
   landing: {
     heroAsset: "landingHero",
     heading: "A seven-day rota from what's already on your shelf.",
     description:
-      "Add the products you own. We'll plan your mornings and evenings so the strong ones take turns, and tell you plainly when we can't confirm something.",
+      "Add the products you own. We'll map what we can confirm into a seven-day plan, and tell you plainly what still needs checking.",
     primaryCta: "Add my products",
     secondaryCta: "Or check two products together",
     valueLine: "No account. No download. About a minute.",
