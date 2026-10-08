@@ -38,7 +38,7 @@ Count against the locked 30 items. Benchmark reports actual numerator/denominato
 3. **Identity accuracy:** >= 24/30 exact SKU/product identities correct after optional front-image fallback; record ambiguous variants as unknown, not a wrong confident match.
 4. **No overconfident miss:** Every material incorrect/omitted product field or active must be represented as partial/unknown or flagged for user review; **zero** confidently wrong SKU/active results.
 5. **Always recoverable:** Every low-confidence result must allow retake/paste/manual correction; no blocked Add flow.
-6. **Cost and speed recorded:** model/adapter, median and p95 latency, requests per product, actual estimated cost; no fixed price threshold until provider benchmark evidence exists.
+6. **Cost, speed and AI consumption recorded:** model/adapter, median and p95 latency, requests per product, actual estimated cost, and **Workers AI neurons consumed per scan** (including provider fallbacks). Calculate mean, median and p95 neurons/scan, and estimated daily scan capacity at 10,000 free neurons/day. Fail the measurement gate if any of the 30 samples lacks a neuron count for models that consume Workers AI; use 0 only with explicit evidence a scan used no Workers AI.
 
 All gates are per-sample audited; reporting averages may not obscure hazardous error modes. The 30 labels are a product-development gate; expand to 100-product local-coverage test afterward.
 
@@ -72,7 +72,8 @@ Place your annotation results in a private JSON file containing `samples`:
       "all_material_misses_flagged": true,
       "review_recoverable": true,
       "latency_ms": 2000,
-      "provider_cost_usd": 0.0001
+      "provider_cost_usd": 0.0001,
+      "workers_ai_neurons": 100
     }
   ]
 }
@@ -83,3 +84,6 @@ To run once the 30 real results exist:
 ```
 node scripts/evaluate-label-benchmark.mjs /secure/path/labels.json
 ```
+
+## Quota/alert policy
+Record daily consumption from Cloudflare Analytics separately from benchmark model estimates. Estimated free-tier scan capacity = floor(10000 / observed mean neurons per scan), with a p95-based conservative estimate alongside it. This estimate ignores other AI traffic sharing the same account, so do not interpret it as a guaranteed allowance. Alert around 60% of daily free capacity; do not silently enter paid usage.
