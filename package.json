@@ -16,14 +16,15 @@
     "build:vinext": "vite build",
     "preview:vinext": "vite preview",
     "deploy:cloudflare": "npx @vinext/cloudflare deploy",
-    "test:merge": "node --experimental-strip-types --test tests/claim-merge.test.mjs"
+    "test:merge": "node --experimental-strip-types --test tests/claim-merge.test.mjs",
+    "auth:schema": "npx auth@1.6.0 generate --adapter drizzle --dialect sqlite --config ./lib/server/auth-schema-config.ts --output ./db/auth-schema.ts --yes"
   },
   "dependencies": {
     "next": "16.3.8",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "drizzle-orm": "^0.45.3",
-    "better-auth": "^1.5.0"
+    "better-auth": "^1.6.0"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
