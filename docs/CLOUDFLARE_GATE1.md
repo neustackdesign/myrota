@@ -66,6 +66,7 @@ Workers Free has a 10 ms CPU limit per invocation, plus 100k daily requests and 
 | Workers deployed | BLOCKED ON CLOUDFLARE ACCOUNT | URL |
 | D1 SQL schema generated | PASS (two tables; unapplied) | [CI migration artifact](https://github.com/neustackdesign/myrota/actions/runs/37707571740) |
 | D1 created | PASS | `myrota`, WEUR, database binding committed on infra branch |
+| Remote initial D1 migration | PASS | `0001_initial.sql` executed 16 commands; remote schema verified with `user`, `session`, `account`, `verification`, `shelf_items`, `account_merge_jobs` |
 | Better Auth factory compiles | PASS (factory only; not mounted) | [Gate 1 CI](https://github.com/neustackdesign/myrota/actions/runs/37707571740) |
 | Pure account merge planner tests | PASS (6 synthetic tests; NOT real identity link) | [Gate 1 CI](https://github.com/neustackdesign/myrota/actions/runs/37707571740) |
 | Better Auth guest → new identity | NOT RUN | live integration test |
