@@ -1,5 +1,3 @@
-import { currentUser } from "@/lib/server/session";
-
 /** Initial real ingestion path: declared INCI pasted by user.
  * Photos are explicitly NOT passed off as OCR until the Workers AI evidence
  * pipeline and the 30-real-label benchmark are validated.
