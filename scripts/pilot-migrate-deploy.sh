@@ -15,9 +15,19 @@ test "$(git branch --show-current)" = "$EXPECTED_BRANCH" ||
 actual="$(sed -n 's/.*"database_id"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' wrangler.d1.jsonc | head -n 1)"
 test "$actual" = "$EXPECTED_DB_ID" || fail "Wrong D1 UUID; never migrate another project's database."
 
+echo "== Install dependencies in this isolated worktree if needed =="
+if [[ ! -d node_modules ]]; then
+  npm install --no-audit --no-fund
+fi
+
 echo "== Preflight identities =="
 npx wrangler whoami
 npx --yes cf auth whoami
+
+echo "== Preflight product code BEFORE any remote database write =="
+npm run typecheck
+npm run test:domain
+npm run build:vinext
 
 echo "== Live API ready for a real guest? =="
 health="$(curl -fsS "$LIVE_URL/api/health")" || fail "Worker is not healthy."
