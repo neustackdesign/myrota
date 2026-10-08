@@ -20,6 +20,15 @@ echo "== Wrangler identity / account =="
 npx wrangler whoami
 
 echo
+echo "== cf identity / account =="
+if ! npx --yes cf auth whoami; then
+  echo >&2
+  echo "cf is not authenticated. Run: npx --yes cf auth login --force" >&2
+  echo "Then verify with: npx --yes cf auth whoami" >&2
+  exit 6
+fi
+
+echo
 echo "== Current Vinext Cloudflare config =="
 test -f cloudflare.config.ts
 grep -q 'entrypoint: "vinext/server/fetch-handler"' cloudflare.config.ts
