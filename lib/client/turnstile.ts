@@ -1,60 +1,68 @@
 "use client";
 
 /**
- * Cloudflare Turnstile for auth endpoints (anonymous sign-in, OTP send,
- * social sign-in). Only active when NEXT_PUBLIC_TURNSTILE_SITE_KEY is set; the
- * server performs the real verification. Returns null when not configured.
+ * Fetch the public Turnstile site key from the Worker at runtime.
+ * Auth cookies remain same-origin. Tokens are one-use, issued only after
+ * explicit user interaction with a meaningful write.
  */
 type TurnstileApi = {
   render: (el: HTMLElement, opts: Record<string, unknown>) => string;
   execute: (id: string) => void;
-  reset: (id: string) => void;
   remove: (id: string) => void;
 };
-
 declare global {
   interface Window {
     turnstile?: TurnstileApi;
   }
 }
 
-const SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? "";
-let scriptPromise: Promise<void> | null = null;
-
-function loadScript() {
-  if (scriptPromise) return scriptPromise;
-  scriptPromise = new Promise((resolve, reject) => {
-    const s = document.createElement("script");
-    s.src = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
-    s.async = true;
-    s.onload = () => resolve();
-    s.onerror = () => reject(new Error("Turnstile failed to load"));
-    document.head.appendChild(s);
-  });
-  return scriptPromise;
+let pendingScript: Promise<TurnstileApi> | null = null;
+async function api(): Promise<TurnstileApi> {
+  if (window.turnstile) return window.turnstile;
+  if (!pendingScript) {
+    pendingScript = new Promise((resolve, reject) => {
+      const script = document.createElement("script");
+      script.src = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
+      script.async = true;
+      script.dataset.myrotaTurnstile = "1";
+      script.onload = () => window.turnstile ? resolve(window.turnstile) : reject(new Error("Verification unavailable"));
+      script.onerror = () => reject(new Error("Verification couldn't load"));
+      document.head.appendChild(script);
+    }).catch((error) => {
+      pendingScript = null;
+      throw error;
+    });
+  }
+  return pendingScript;
 }
 
 export async function loadTurnstileToken(): Promise<string | null> {
-  if (!SITE_KEY || typeof window === "undefined") return null;
-  await loadScript();
-  const api = window.turnstile;
-  if (!api) return null;
+  if (typeof window === "undefined") return null;
+  const res = await fetch("/api/config", { cache: "no-store" });
+  if (!res.ok) throw new Error("Verification configuration unavailable");
+  const config = (await res.json()) as { turnstileSiteKey?: string | null };
+  if (!config.turnstileSiteKey) return null;
+
+  const turnstile = await api();
   const host = document.createElement("div");
-  host.style.position = "fixed";
-  host.style.bottom = "0";
-  host.style.right = "0";
-  document.body.appendChild(host);
+  host.style.cssText = "position:fixed;right:8px;bottom:8px;z-index:9999";
+  document.body.append(host);
+  let widgetId: string | null = null;
   try {
     return await new Promise<string>((resolve, reject) => {
-      const id = api.render(host, {
-        sitekey: SITE_KEY,
-        size: "invisible",
-        callback: (token: string) => resolve(token),
-        "error-callback": () => reject(new Error("Verification failed")),
+      widgetId = turnstile.render(host, {
+        sitekey: config.turnstileSiteKey,
+        appearance: "interaction-only",
+        execution: "execute",
+        callback: (value: unknown) => typeof value === "string" ? resolve(value) : reject(new Error("Invalid verification token")),
+        "error-callback": () => reject(new Error("Verification failed. Try again.")),
+        "expired-callback": () => reject(new Error("Verification expired. Try again.")),
+        "timeout-callback": () => reject(new Error("Verification timed out. Try again.")),
       });
-      api.execute(id);
+      turnstile.execute(widgetId);
     });
   } finally {
+    if (widgetId) turnstile.remove(widgetId);
     host.remove();
   }
 }
