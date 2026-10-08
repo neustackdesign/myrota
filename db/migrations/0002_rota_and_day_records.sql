@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS rota_snapshots (
   created_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS rota_owner_idx ON rota_snapshots(owner_user_id, created_at);
+CREATE UNIQUE INDEX IF NOT EXISTS rota_one_active_owner ON rota_snapshots(owner_user_id) WHERE archived_at IS NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS rota_owner_create_key ON rota_snapshots(owner_user_id, create_key);
 CREATE TABLE IF NOT EXISTS day_records (
   owner_user_id TEXT NOT NULL,
