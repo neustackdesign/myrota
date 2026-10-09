@@ -2,11 +2,11 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    id: "/",
+    id: "/app",
     name: "myrota",
     short_name: "myrota",
     description: "Turn the skincare you already own into a simple 7-day rota.",
-    start_url: "/today",
+    start_url: "/app",
     scope: "/",
     display: "standalone",
     background_color: "#F7EFE7",
