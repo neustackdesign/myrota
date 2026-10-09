@@ -65,7 +65,7 @@ interface Look { skin: number; hair: string; face: string; extra: string; bg: st
 interface UI {
   screen: Screen; hist: Screen[]; phase: "idle" | "out" | "in0"; dir: number;
   sheet: string | null; sheetIn: boolean; toast: string | null; busy: string | null; pop: boolean;
-  source: Source; query: string; unkName: string; unkPlace: UserPlacement; unkFromReview: boolean;
+  source: Source; query: string; barcodeOpen: boolean; unkName: string; unkPlace: UserPlacement; unkFromReview: boolean;
   pasteText: string; candidateMethod: "paste" | "scan" | "gallery"; selectedCatalogue: CatalogueProduct | null; candidate: ExtractionCandidate | null; revStep: 1 | 2; revName: string; revCat: ProductCategory | null; revUse: ProductFormat | null;
   corrections: Record<string, string | null>; chipId: string | null; chipDraft: string;
   ctxRet: RetinoidExperience | null; ctxCare: string | null; buildN: number;
@@ -82,7 +82,7 @@ interface Data {
 
 const INITIAL_UI: UI = {
   screen: "loading", hist: [], phase: "idle", dir: 1, sheet: null, sheetIn: false, toast: null, busy: null, pop: false,
-  source: "organic", query: "", unkName: "", unkPlace: "pm", unkFromReview: false,
+  source: "organic", query: "", barcodeOpen: false, unkName: "", unkPlace: "pm", unkFromReview: false,
   pasteText: "", candidateMethod: "paste", selectedCatalogue: null, candidate: null, revStep: 1, revName: "", revCat: null, revUse: null, corrections: {}, chipId: null, chipDraft: "",
   ctxRet: null, ctxCare: null, buildN: 0, stripSel: -1, weekOpen: -1, sheetDay: 0, prodId: null,
   mixA: null, mixB: null, mixSlot: "a", mixResult: null, whyOpen: false,
@@ -404,6 +404,7 @@ export function useAppVM() {
     const inMix = u.sheet === "mixPick";
     const catalogueEnabled = d.config?.capabilities?.catalogue === true;
     const photoEnabled = d.config?.capabilities?.photoReading === true;
+    const barcodeEnabled = catalogueEnabled && d.config?.capabilities?.barcodeLookup === true;
     const catalogueMatches = catalogueEnabled && catalogue.query.trim().toLowerCase() === Q
       ? catalogue.results : [];
     const shelfMatches = inMix
@@ -494,10 +495,20 @@ export function useAppVM() {
       // add
       query: u.query, onQuery: (e: any) => set({ query: e.target.value }),
       resultsTyped: Q ? results.slice(0, 7) : [], results,
-      catalogueEnabled, photoEnabled, photoProcessing: busy === "extract",
+      catalogueEnabled, photoEnabled, barcodeEnabled, barcodeOpen: u.barcodeOpen && barcodeEnabled,
+      openBarcode: () => set({ barcodeOpen: true }),
+      closeBarcode: () => set({ barcodeOpen: false }),
+      onBarcodeFound: (code: string) => {
+        set({ barcodeOpen: false, query: code });
+        toast("Barcode read. Looking for an exact product match.");
+      },
+      barcodeNoMatch: barcodeEnabled && /^(?:\d{8}|\d{12}|\d{13}|\d{14})$/.test(Q)
+        && !catalogue.busy && catalogue.query.trim().toLowerCase() === Q
+        && catalogueRows.length === 0,
+      photoProcessing: busy === "extract",
       catalogueBusy: catalogueEnabled && catalogue.busy && catalogue.query.trim().toLowerCase() === Q,
       catalogueError: catalogueEnabled && catalogue.query.trim().toLowerCase() === Q ? catalogue.error : null,
-      showUnknownRow: Q.length > 2 && !dupes.some((p) => p.name.toLowerCase() === Q) && !catalogueRows.some((p) => p.name.toLowerCase() === Q),
+      showUnknownRow: Q.length > 2 && !/^(?:\d{8}|\d{12}|\d{13}|\d{14})$/.test(Q) && !dupes.some((p) => p.name.toLowerCase() === Q) && !catalogueRows.some((p) => p.name.toLowerCase() === Q),
       unknownRowSub: "Add it by name. We won't guess what's in it until its ingredients are read.",
       openUnknown: () => openSheet("unknown", { unkName: u.query.trim(), unkPlace: "pm", unkFromReview: false, selectedCatalogue: null, revCat: "other", revUse: null }),
       hasAdded: n > 0, added: shelf.map((p) => ({ short: p.name, icon: CATEGORY_ICON[p.category], remove: async () => { try { await repo.removeProduct(p.id); await loadShelf(); toast("Removed"); } catch (e) { fail(e); } } })),
