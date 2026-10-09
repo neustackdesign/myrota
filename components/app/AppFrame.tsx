@@ -14,11 +14,11 @@ import { SCREENS, SHEETS } from "./screens";
  * column is centred at a readable width with the screen's own surface
  * colour bleeding to the edges (no scaled-up phone frame).
  */
-export function AppFrame({ v, banner }: { v: any; banner?: React.ReactNode }) {
+export function AppFrame({ v, banner, extraScreens, extraSheets }: { v: any; banner?: React.ReactNode; extraScreens?: Record<string, (v: any) => React.ReactNode>; extraSheets?: Record<string, (v: any) => React.ReactNode> }) {
   const screenKey = Object.keys(v.S || {}).find((k) => v.S[k]) ?? "welcome";
   const sheetKey = Object.keys(v.SH || {}).find((k) => v.SH[k]) ?? null;
-  const Screen = SCREENS[screenKey] ?? SYSTEM_SCREENS[screenKey];
-  const Sheet = sheetKey ? SHEETS[sheetKey] : null;
+  const Screen = SCREENS[screenKey] ?? extraScreens?.[screenKey] ?? SYSTEM_SCREENS[screenKey];
+  const Sheet = sheetKey ? SHEETS[sheetKey] ?? extraSheets?.[sheetKey] ?? null : null;
   const sheetRef = useRef<HTMLDivElement>(null);
   const lastFocus = useRef<HTMLElement | null>(null);
 

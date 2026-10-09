@@ -10,10 +10,12 @@ import { AppFrame } from "@/components/app/AppFrame";
  */
 export function StatesGallery() {
   const [logic, setLogic] = useState<any>(null);
+  const [demo, setDemo] = useState<any>(null);
   const [, force] = useReducer((n: number) => n + 1, 0);
   useEffect(() => {
     if (process.env.NEXT_PUBLIC_MYROTA_DEMO !== "1") return;
     let unsub: (() => void) | undefined;
+    import("@/components/app/screens-demo").then((m) => setDemo(m));
     import("@/lib/demo/prototype-logic").then(({ PrototypeLogic }) => {
       const L: any = new PrototypeLogic({});
       const q = new URLSearchParams(window.location.search);
@@ -47,7 +49,7 @@ export function StatesGallery() {
         </div>
       </aside>
       <div className="app-device" data-testid="device" style={{ width: 375, height: 812, borderRadius: 40, overflow: "hidden", boxShadow: "0 30px 60px -30px rgba(42,25,17,.45)", position: "relative" }}>
-        <AppFrame v={{ ...v, phoneBg: v.phoneBg }} />
+        <AppFrame v={{ inviteLink: "myrota.app/i/a8Kb4Q", ...v }} extraScreens={demo?.DEMO_SCREENS} extraSheets={demo?.DEMO_SHEETS} />
       </div>
     </div>
   );

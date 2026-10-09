@@ -10,7 +10,7 @@ PATCHES = [
   ("S_add", "Not in our library. Scan the label, or add it as unknown.", "unknownRowSub"),
   ("SH_invite", "Invite one friend", "inviteTitle"),
   ("SH_invite", "They build their own rota from their own shelf. You'll see each other's streak, nothing else.", "inviteBody"),
-  ("SH_invite", "myrota.app/i/a8Kb4Q", "inviteLink"),
+  ("SH_invite", "myrota.app/i/a8Kb4Q", "!inviteLink"),  # fixture link: no fallback in prod bundle; demo gallery supplies it
   ("S_friends", "One link works for a chat, a group or your Status. Each person builds their own rota.", "friendsEmptyLine"),
   ("S_friends", "Invite a friend", "inviteBtnLabel"),
   ("SH_name", "What should friends call you?", "nameTitle"),
@@ -35,11 +35,23 @@ for n in names:
             import json
             needle = '>' + orig + '<'
             assert body.count(needle) == 1, (n, orig, body.count(needle))
-            body = body.replace(needle, '>{v.' + var + ' ?? ' + json.dumps(orig, ensure_ascii=False) + '}<')
+            if var.startswith('!'):
+                body = body.replace(needle, '>{v.' + var[1:] + '}<')
+            else:
+                body = body.replace(needle, '>{v.' + var + ' ?? ' + json.dumps(orig, ensure_ascii=False) + '}<')
     parts.append((kind,key,body))
-s=head+'\n'
-for kind,key,body in parts:
-    s+=f'\nfunction {kind}_{key}(v: V): ReactNode {{\n  return (<>{body}</>);\n}}\n'
-s+='\nexport const SCREENS: Record<string, (v: V) => ReactNode> = {\n'+''.join(f'  {k}: S_{k},\n' for kind,k,_ in parts if kind=='S')+'};\n'
-s+='\nexport const SHEETS: Record<string, (v: V) => ReactNode> = {\n'+''.join(f'  {k}: SH_{k},\n' for kind,k,_ in parts if kind=='SH')+'};\n'
-open(out,'w').write(s)
+# Design-review-only states: unreachable in production (no backend), kept out of the
+# production bundle so fixture people/links never ship. Loaded by /dev/states only.
+DEMO_ONLY = {('S','whatsapp'),('S','lock'),('S','friendJoined'),('S','inviteLanding'),('S','reminders'),('S','nextWeek'),('SH','claim'),('SH','rescue'),('SH','swap'),('SH','nudge')}
+def emit(sel, name_s, name_sh):
+    s=''
+    for kind,key,body in parts:
+        if sel(kind,key):
+            s+=f'\nfunction {kind}_{key}(v: V): ReactNode {{\n  return (<>{body}</>);\n}}\n'
+    s+=f'\nexport const {name_s}: Record<string, (v: V) => ReactNode> = {{\n'+''.join(f'  {k}: S_{k},\n' for kind,k,_ in parts if kind=='S' and sel(kind,k))+'};\n'
+    s+=f'\nexport const {name_sh}: Record<string, (v: V) => ReactNode> = {{\n'+''.join(f'  {k}: SH_{k},\n' for kind,k,_ in parts if kind=='SH' and sel(kind,k))+'};\n'
+    return s
+open(out,'w').write(head+'\n'+emit(lambda k,n:(k,n) not in DEMO_ONLY,'SCREENS','SHEETS'))
+demo_out=out.replace('screens.tsx','screens-demo.tsx')
+demo_head=head.replace('Prototype v1.6 screens and sheets','DEMO-ONLY Prototype v1.6 screens and sheets (design review; no production backend)')
+open(demo_out,'w').write(demo_head+'\n'+emit(lambda k,n:(k,n) in DEMO_ONLY,'DEMO_SCREENS','DEMO_SHEETS'))
