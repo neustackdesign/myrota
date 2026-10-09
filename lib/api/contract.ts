@@ -46,6 +46,7 @@ export interface ClientConfigResponse {
   capabilities?: {
     photoReading?: boolean;
     catalogue?: boolean;
+    barcodeLookup?: boolean;
   };
 }
 
