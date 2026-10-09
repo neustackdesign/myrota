@@ -11,6 +11,8 @@ export interface MyrotaBindings {
   AI?: WorkersAi;
   /** Server gate: "1" only after the 30-label benchmark passes on the deployed model. */
   PHOTO_READING_ENABLED?: string;
+  /** Override the Workers AI vision model id without redeploying code. */
+  MYROTA_VISION_MODEL?: string;
   BETTER_AUTH_SECRET?: string;
   TURNSTILE_SECRET_KEY?: string;
   TURNSTILE_SITE_KEY?: string;

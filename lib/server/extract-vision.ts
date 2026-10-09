@@ -12,7 +12,10 @@ import type { WorkersAi } from "./cloudflare-env";
  * before PHOTO_READING_ENABLED is set. Model id is configurable via env so we never
  * hard-assume one exists.
  */
-export const DEFAULT_VISION_MODEL = "@cf/meta/llama-3.2-11b-vision-instruct";
+// Image-to-Text model: accepts { image: number[], prompt } and returns { description }.
+// Configurable per-deploy via the MYROTA_VISION_MODEL binding so alternatives can be
+// A/B'd against the benchmark without a code change.
+export const DEFAULT_VISION_MODEL = "@cf/llava-hf/llava-1.5-7b-hf";
 
 const TRANSCRIBE_PROMPT =
   "You are an OCR transcriber for a cosmetic product label. Transcribe ONLY the text that is actually " +

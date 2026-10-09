@@ -41,7 +41,7 @@ async function handleImage(request: Request): Promise<Response> {
   const kind = sniffImage(bytes);
   if (!kind) return problem("unsupported_image");
 
-  const model = (typeof process !== "undefined" && process.env?.MYROTA_VISION_MODEL) || DEFAULT_VISION_MODEL;
+  const model = e.MYROTA_VISION_MODEL || DEFAULT_VISION_MODEL;
   const started = Date.now();
   let text = "";
   let usage: unknown = null;
