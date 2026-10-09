@@ -1,4 +1,4 @@
-import { searchCatalogue } from "@/lib/server/catalogue-store";
+import { findCatalogueByBarcode, searchCatalogue } from "@/lib/server/catalogue-store";
 import type { CatalogueSearchResponse } from "@/lib/api/contract";
 
 /**
@@ -13,10 +13,13 @@ import type { CatalogueSearchResponse } from "@/lib/api/contract";
 export function GET(request: Request): Response {
   const url = new URL(request.url);
   const q = (url.searchParams.get("q") ?? "").slice(0, 80);
+  const barcode = url.searchParams.get("barcode");
   const limitParam = Number(url.searchParams.get("limit") ?? "20");
   const limit = Number.isFinite(limitParam) ? Math.min(Math.max(1, limitParam), 50) : 20;
 
-  const results = searchCatalogue(q, limit);
+  // Explicit barcode searches never fall through to fuzzy name matching.
+  const barcodeMatch = barcode === null ? null : findCatalogueByBarcode(barcode);
+  const results = barcode === null ? searchCatalogue(q, limit) : (barcodeMatch ? [barcodeMatch] : []);
   const body: CatalogueSearchResponse = { results };
   return Response.json(body, { headers: { "cache-control": "no-store" } });
 }
