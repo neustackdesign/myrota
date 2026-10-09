@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { searchCatalogue, getCatalogueRecord, catalogueSize } from "../../lib/server/catalogue-store";
+import { searchCatalogue, getCatalogueRecord, catalogueSize, canonicalGtin, findCatalogueByBarcode } from "../../lib/server/catalogue-store";
 
 test("catalogue is a real, non-trivial starter set", () => {
   assert.ok(catalogueSize >= 100, `expected >=100 products, got ${catalogueSize}`);
@@ -43,4 +43,30 @@ test("getCatalogueRecord resolves server-side provenance and rejects unknown ids
 
 test("result count is bounded", () => {
   assert.ok(searchCatalogue("a cream", 50).length <= 50);
+});
+
+test("exact GTIN lookup resolves existing OBF product without interpreting a numeric query as a name", () => {
+  const code = "3606000637535";
+  const product = findCatalogueByBarcode(code);
+  assert.ok(product, "known CeraVe barcode should be indexed");
+  assert.equal(product!.identityKey, code);
+  assert.deepEqual(searchCatalogue(code), [product]);
+  assert.equal(product!.inciStatus, "partial", "barcode never grants clinical certainty");
+});
+
+test("UPC / EAN / GTIN-14 variants normalize to the same identifier, invalid checksums fail closed", () => {
+  const canonical = canonicalGtin("3606000637535");
+  assert.equal(canonical, "03606000637535");
+  assert.equal(canonicalGtin("03606000637535"), canonical);
+  assert.equal(findCatalogueByBarcode("03606000637535")?.catalogueId,
+    findCatalogueByBarcode("3606000637535")?.catalogueId);
+  assert.equal(canonicalGtin("3606000637536"), null);
+  assert.equal(canonicalGtin("EAN3606000637535"), null);
+  assert.equal(canonicalGtin("360600063753"), null);
+  assert.equal(canonicalGtin("3606000637535999"), null);
+  assert.equal(searchCatalogue("3606000637536").length, 0);
+});
+
+test("unknown but well-formed GTIN does not guess an adjacent product", () => {
+  assert.equal(findCatalogueByBarcode("12345670"), null);
 });
