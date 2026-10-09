@@ -1,7 +1,20 @@
 import os,re,sys
 d,out=sys.argv[1],sys.argv[2]
 src=open(out).read()
-head=src[:src.index('\nfunction ')]
+head=src[:src.index('\nfunction ')].rstrip('\n')+'\n'
+# Markup patches for controls the pilot can't back: the label-photo CTAs become the
+# working paste / add-by-name inputs. (screen, old, new); "re:" marks a regex.
+# Applied before the copy hooks below; each must match exactly once.
+MARKUP_PATCHES = [
+  ("SH_mixPick", '<input value={v.query} onChange={v.onQuery} placeholder="Search brand or product"', '<input id="myrota-mix-product-name" value={v.query} onChange={v.onQuery} placeholder="Enter product name"'),
+  ("SH_mixPick", '<button onClick={v.mixScan}', '<button onClick={() => document.getElementById("myrota-mix-product-name")?.focus()}'),
+  ("SH_mixPick", '</span>Scan the label</button>', '</span>Enter a product name</button>'),
+  ("S_add", 'onClick={v.scanGo}', 'onClick={v.pasteGo}'),
+  ("S_add", 're:<svg width="36" height="36" .*?</svg>Scan the label</button>', '<RotaMarker icon="jar" size={34} />Paste ingredient list</button>'),
+  ("S_add", '<div style={{ display: "flex", justifyContent: "center", gap: "24px" }}><button onClick={v.pasteGo}', '<div style={{ display: "flex", justifyContent: "center", gap: "24px", alignItems: "center", flexWrap: "wrap" }}><button onClick={() => document.getElementById("myrota-product-name")?.focus()}'),
+  ("S_add", 're:>Paste ingredients</button><button onClick=\\{v\\.galleryGo\\} style=\\{\\{[^}]*\\}\\}>Choose a photo</button>', '>Add by name instead</button><span style={{ fontSize: "12px", color: "#845535" }}>Photo reading coming soon</span>'),
+  ("S_add", '<input value={v.query} onChange={v.onQuery} placeholder="Search brand or product"', '<input id="myrota-product-name" value={v.query} onChange={v.onQuery} placeholder="Product name (e.g. Vitamin C serum)"'),
+]
 PATCHES = [
   ("S_scan", "Scan the back label first", "scanTitle"),
   ("S_scan", "The ingredient list tells us more than the name. We'll use your camera only while this screen is open. Photos aren't kept.", "scanBody"),
@@ -30,6 +43,11 @@ for n in names:
     bodies=[b.strip() for b in re.split(r'^// ---- .*\n',t,flags=re.M) if b.strip()]
     kind,key=n.split('_',1)
     body=bodies[0]
+    for (scr, old, new) in MARKUP_PATCHES:
+        if scr == n:
+            pat = old[3:] if old.startswith('re:') else re.escape(old)
+            body, count = re.subn(pat, lambda _m: new, body, flags=re.S)
+            assert count == 1, (n, old, count)
     for (scr, orig, var) in PATCHES:
         if scr == n:
             import json
