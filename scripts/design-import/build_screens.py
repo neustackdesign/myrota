@@ -54,4 +54,4 @@ def emit(sel, name_s, name_sh):
 open(out,'w').write(head+'\n'+emit(lambda k,n:(k,n) not in DEMO_ONLY,'SCREENS','SHEETS'))
 demo_out=out.replace('screens.tsx','screens-demo.tsx')
 demo_head=head.replace('Prototype v1.6 screens and sheets','DEMO-ONLY Prototype v1.6 screens and sheets (design review; no production backend)')
-open(demo_out,'w').write(demo_head+'\n'+emit(lambda k,n:(k,n) in DEMO_ONLY,'DEMO_SCREENS','DEMO_SHEETS'))
+open(demo_out,'w').write(demo_head+'\n'+emit(lambda k,n:(k,n) in DEMO_ONLY,'DEMO_SCREENS','DEMO_SHEETS')+'\n/** Fixture bindings with no production fallback (e.g. the prototype invite link). */\nexport const DEMO_DEFAULTS = { inviteLink: "myrota.app/i/a8Kb4Q" };\n')

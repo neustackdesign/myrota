@@ -49,7 +49,7 @@ export function StatesGallery() {
         </div>
       </aside>
       <div className="app-device" data-testid="device" style={{ width: 375, height: 812, borderRadius: 40, overflow: "hidden", boxShadow: "0 30px 60px -30px rgba(42,25,17,.45)", position: "relative" }}>
-        <AppFrame v={{ inviteLink: "myrota.app/i/a8Kb4Q", ...v }} extraScreens={demo?.DEMO_SCREENS} extraSheets={demo?.DEMO_SHEETS} />
+        <AppFrame v={{ ...demo?.DEMO_DEFAULTS, ...v }} extraScreens={demo?.DEMO_SCREENS} extraSheets={demo?.DEMO_SHEETS} />
       </div>
     </div>
   );

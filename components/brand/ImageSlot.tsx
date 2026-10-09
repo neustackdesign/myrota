@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { slotImage } from "@/lib/assets/slots";
 
 /**
@@ -10,11 +10,18 @@ import { slotImage } from "@/lib/assets/slots";
  */
 export function ImageSlot({ slot, style, eager = false }: { slot: string; shape?: string; placeholder?: string; style?: React.CSSProperties; eager?: boolean }) {
   const [failed, setFailed] = useState(false);
+  const ref = useRef<HTMLImageElement>(null);
+  // An image that failed before hydration never fires React's onError: check after mount.
+  useEffect(() => {
+    const el = ref.current;
+    if (el && el.complete && el.naturalWidth === 0) setFailed(true);
+  }, []);
   const img = slotImage(slot);
   if (!img || failed) return null;
   return (
     // eslint-disable-next-line @next/next/no-img-element
     <img
+      ref={ref}
       src={img.src}
       alt={img.alt}
       data-slot={slot}
