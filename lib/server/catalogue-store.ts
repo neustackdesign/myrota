@@ -63,7 +63,7 @@ const INDEX: IndexedRecord[] = (catalogueData as { products: RawRecord[] }).prod
  */
 export function canonicalGtin(raw: string): string | null {
   const code = raw.trim();
-  if (!/^(?:\\d{8}|\\d{12}|\\d{13}|\\d{14})$/.test(code)) return null;
+  if (!/^(?:\d{8}|\d{12}|\d{13}|\d{14})$/.test(code)) return null;
   const digits = Array.from(code, Number);
   let sum = 0;
   for (let i = digits.length - 2, weight = 3; i >= 0; i--, weight = weight === 3 ? 1 : 3) {
@@ -99,7 +99,7 @@ export function getCatalogueRecord(catalogueId: string): IndexedRecord | null {
  */
 export function searchCatalogue(rawQuery: string, limit = 20): CatalogueProduct[] {
   const q = rawQuery.trim().toLowerCase().slice(0, 80);
-  if (/^\\d{8,14}$/.test(q)) {
+  if (/^\d{8,14}$/.test(q)) {
     const exact = findCatalogueByBarcode(q);
     return exact ? [exact] : [];
   }
