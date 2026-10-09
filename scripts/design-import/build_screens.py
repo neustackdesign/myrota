@@ -14,6 +14,7 @@ MARKUP_PATCHES = [
   ("S_add", '<div style={{ display: "flex", justifyContent: "center", gap: "24px" }}><button onClick={v.pasteGo}', '<div style={{ display: "flex", justifyContent: "center", gap: "24px", alignItems: "center", flexWrap: "wrap" }}><button onClick={() => document.getElementById("myrota-product-name")?.focus()}'),
   ("S_add", 're:>Paste ingredients</button><button onClick=\\{v\\.galleryGo\\} style=\\{\\{[^}]*\\}\\}>Choose a photo</button>', '>Add by name instead</button><span style={{ fontSize: "12px", color: "#845535" }}>Photo reading coming soon</span>'),
   ("S_add", '<input value={v.query} onChange={v.onQuery} placeholder="Search brand or product"', '<input id="myrota-product-name" value={v.query} onChange={v.onQuery} placeholder="Product name (e.g. Vitamin C serum)"'),
+  ("SH_paste", ">Copy it from the brand's site or the box. We'll read it the same way as a scan.<", ">Copy the ingredient list from the box or the brand's site. We'll split it into lines for you to review.<"),
 ]
 PATCHES = [
   ("S_scan", "Scan the back label first", "scanTitle"),

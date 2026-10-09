@@ -31,8 +31,8 @@ rep('Invite a friend on WhatsApp', 'Share myrota on WhatsApp')
 rep("I'm building a skincare rota from what's already on my shelf. Build yours and we can keep each other going.", "I'm building a skincare rota from what's already on my shelf. Build yours:")
 rep('myrota.app/i/a8Kb4Q · 21:44', '{v.publicUrlLabel}')
 rep('This is the message your friend gets. One link works for a chat, a group or your Status.', "This is the message your friend gets. Friend Streaks aren't switched on in this pilot yet, so for now the link opens myrota itself. The moments above are illustrations.")
-# TU: say which entry methods are live in the pilot.
-rep("If myrota can't read something, it says so. It only goes where you put it.", "If myrota can't read something, it says so. It only goes where you put it. In this pilot, pasting ingredients and adding by name are live; label photos and library search are still being connected.")
+# TU: describe only the entry methods that are live in the pilot.
+rep("Scan the back, search the name or paste the ingredients. If myrota can't read something, it says so. It only goes where you put it.", "Paste the ingredients from the label, or add a product by name. You'll review what we've read before saving it. Photo reading and product-library matching are still being built.")
 
 header = '''"use client";
 /* eslint-disable @typescript-eslint/no-explicit-any */

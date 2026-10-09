@@ -12,7 +12,7 @@ Rule applied throughout: **the new design owns look, copy, transitions and sheet
 | FAQ medical: "it holds your retinoid and exfoliant" (prescription) | strong actives are not scheduled until a pharmacist-reviewed rule exists | true of the current conservative engine |
 | SA "Invite a friend on WhatsApp", message with `myrota.app/i/a8Kb4Q` | "Share myrota on WhatsApp" with this deployment's real `/app` URL; caption says Friend Streaks aren't on and the ticker is illustrative | no invite/pairing backend; fixture token removed |
 | TH "a reminder only when you need it" | "Reminders are planned; they aren't switched on in this pilot yet"; slot copy "Planned: …" | no push |
-| TU intro | adds "In this pilot, pasting ingredients and adding by name are live; label photos and library search are still being connected"; fragment cards carry pilot labels | `/api/extract` photo = 501; catalogue empty |
+| TU intro "Scan the back, search the name or paste the ingredients…" | "Paste the ingredients from the label, or add a product by name… Photo reading and product-library matching are still being built."; fragment cards carry pilot labels | `/api/extract` photo = 501; catalogue empty |
 | FR verdicts (hard-coded) | kept as labelled illustrations: "These verdicts are illustrative examples, not reviewed results…"; Build CTA carries the pair as unanalysed names to `/app/mix` | brief allows labelled illustrations; app returns Not enough evidence |
 | FR prescription verdict body "myrota holds your retinoid…" | "Check with a professional before combining them." | no reviewed hold rule |
 | Footer `href="#"` (About, Contact, Press kit, Privacy, Terms, Cookie settings) | real pages `/about`, `/contact`, `/about#press`, `/legal/privacy`, `/legal/terms`, `/legal/privacy#cookies` | no dead links |
@@ -25,6 +25,7 @@ Rule applied throughout: **the new design owns look, copy, transitions and sheet
 |---|---|---|
 | Fake status bar, URL bar, home indicator, OS permission dialog, review side panels | not rendered | simulation furniture |
 | Phone frame 395×820 | full-viewport column ≤520px, centred on wide screens with the screen's own surface colour | brief: don't inflate a phone frame; mobile-first semantics |
+| Add screen: primary "Scan the label", links "Paste ingredients" / "Choose a photo", "Search brand or product" | primary "Paste ingredient list"; "Add by name instead" focuses the name field; "Photo reading coming soon"; Mix picker's scan button focuses its name field. Paste sheet: "We'll split it into lines for you to review" (not "the same way as a scan") | no photo endpoint; no dead CTAs |
 | 8-product famous-brand library search | search only shows the user's own shelf (duplicate detection); unknown → "Add “X”" | catalogue has no reviewed entries |
 | Scan / gallery → simulated OCR (glare, proc, verified/flag/alert reviews) | scan screen says "Label photos are coming soon" → Paste / Add by name | 30-label gate not passed; Worker returns 501 |
 | Review flags (hydroquinone, regulator alert with `[pharmacist]` placeholders) | never shown live; demo gallery only | editorial fixtures |
