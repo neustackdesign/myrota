@@ -56,7 +56,35 @@ const INDEX: IndexedRecord[] = (catalogueData as { products: RawRecord[] }).prod
   haystack: `${r.brand} ${r.name} ${r.variant ?? ""}`.toLowerCase(),
 }));
 
+/**
+ * Canonical GTIN is a 14-digit string, including meaningful leading zeroes.
+ * Accept only GTIN-8, UPC-A (12), EAN-13, or GTIN-14 with a valid GS1 check
+ * digit. Never fuzzy-match numeric identifiers: wrong SKU must return no hit.
+ */
+export function canonicalGtin(raw: string): string | null {
+  const code = raw.trim();
+  if (!/^(?:\\d{8}|\\d{12}|\\d{13}|\\d{14})$/.test(code)) return null;
+  const digits = Array.from(code, Number);
+  let sum = 0;
+  for (let i = digits.length - 2, weight = 3; i >= 0; i--, weight = weight === 3 ? 1 : 3) {
+    sum += digits[i] * weight;
+  }
+  const checkDigit = (10 - (sum % 10)) % 10;
+  return digits[digits.length - 1] === checkDigit ? code.padStart(14, "0") : null;
+}
+
 const BY_ID = new Map(INDEX.map((x) => [x.product.catalogueId, x]));
+const BY_BARCODE = new Map<string, IndexedRecord>();
+for (const item of INDEX) {
+  const barcode = canonicalGtin(item.product.identityKey);
+  if (barcode && !BY_BARCODE.has(barcode)) BY_BARCODE.set(barcode, item);
+}
+
+/** Barcode identity does not prove the formula, source recency or clinical safety. */
+export function findCatalogueByBarcode(rawCode: string): CatalogueProduct | null {
+  const code = canonicalGtin(rawCode);
+  return code ? (BY_BARCODE.get(code)?.product ?? null) : null;
+}
 
 export const catalogueSize = INDEX.length;
 
@@ -71,6 +99,10 @@ export function getCatalogueRecord(catalogueId: string): IndexedRecord | null {
  */
 export function searchCatalogue(rawQuery: string, limit = 20): CatalogueProduct[] {
   const q = rawQuery.trim().toLowerCase().slice(0, 80);
+  if (/^\\d{8,14}$/.test(q)) {
+    const exact = findCatalogueByBarcode(q);
+    return exact ? [exact] : [];
+  }
   if (q.length < 2) return [];
   const tokens = q.split(/\s+/).filter((t) => t.length >= 2).slice(0, 8);
   if (!tokens.length) return [];
