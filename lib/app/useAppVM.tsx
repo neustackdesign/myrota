@@ -418,7 +418,7 @@ export function useAppVM() {
       icon: CATEGORY_ICON[product.category] ?? "jar", onShelf: false, canAdd: true,
       act: () => {
         if (inMix) closeSheet(() => set((x) => ({ [x.mixSlot === "a" ? "mixA" : "mixB"]: { ref: { kind: "catalogue", catalogueId: product.catalogueId }, name: product.name, icon: CATEGORY_ICON[product.category] ?? "jar" }, query: "" }) as Partial<UI>));
-        else openSheet("unknown", { unkName: product.name, unkPlace: "pm", unkFromReview: false, selectedCatalogue: product });
+        else openSheet("unknown", { unkName: product.name, unkPlace: "pm", unkFromReview: false, selectedCatalogue: product, revCat: product.category, revUse: product.format === "unknown" ? null : product.format });
       },
     }));
     const results = [...shelfMatches, ...catalogueRows];
@@ -513,6 +513,9 @@ export function useAppVM() {
 
       // unknown sheet
       unkName: `“${u.unkName}”`, unkOpts: ([["am", "Morning"], ["pm", "Evening"], ["none", "Not yet"]] as const).map(([val, t]) => ({ t, bg: u.unkPlace === val ? "#F1E0D2" : "#FBFAF6", bc: u.unkPlace === val ? "#2A1911" : "#E8D8C9", pick: () => set({ unkPlace: val }) })),
+      unkCatalogue: !!u.selectedCatalogue,
+      unkCats: CATS.map(([val, t]) => ({ t, val, picked: u.revCat === val, pick: () => set({ revCat: val }) })),
+      unkFormats: ([["rinse_off", "Rinse-off"], ["leave_on", "Leave-on"], ["unknown", "Not sure"]] as const).map(([val, t]) => ({ t, picked: (u.revUse ?? "unknown") === val, pick: () => set({ revUse: val === "unknown" ? null : val }) })),
       unkTitle: u.unkFromReview ? "Where does it go?" : u.selectedCatalogue ? "Found in product library" : "Unknown product",
       unkBody: u.unkFromReview ? "We read its ingredient list, but until that list is confirmed we won't check it against your other products. It goes only where you put it."
         : u.selectedCatalogue ? "This is a library listing, not a safety review. We'll save the source and your placement without calling its ingredients clinically verified."
@@ -535,6 +538,8 @@ export function useAppVM() {
           const draft = draftFromCatalogue(product);
           ok = await addDraft({
             ...draft,
+            category: u.revCat ?? "other",
+            format: u.revUse ?? "unknown",
             placement: u.unkPlace,
             identityStatus: "user_confirmed",
             identityKey: null,
