@@ -27,8 +27,8 @@ export async function POST(request: Request) {
     const user = await currentUser(request);
     if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
     const body = await request.json().catch(() => null);
-    const product = await addShelfProduct(user.id, body);
-    return Response.json({ product, duplicate: false }, { status: 201, headers: { "cache-control": "no-store" } });
+    const { product, duplicate } = await addShelfProduct(user.id, body);
+    return Response.json({ product, duplicate }, { status: 201, headers: { "cache-control": "no-store" } });
   } catch (error) {
     return errorResponse(error);
   }

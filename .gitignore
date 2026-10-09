@@ -15,3 +15,12 @@ dist
 .cloudflare
 .cloudflare/
 dist/
+
+# backend/domain test build output
+.domain-test
+.backend-test
+
+# generated (match base branch — not tracked)
+package-lock.json
+next-env.d.ts
+*.tsbuildinfo

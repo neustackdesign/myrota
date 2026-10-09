@@ -1,7 +1,18 @@
 import type { D1Database } from "@cloudflare/workers-types";
 
+/** Minimal Workers AI binding surface we rely on (provider-neutral run()). */
+export interface WorkersAi {
+  run(model: string, input: Record<string, unknown>): Promise<unknown>;
+}
+
 export interface MyrotaBindings {
   DB: D1Database;
+  /** Workers AI binding for vision/OCR extraction. Absent until provisioned + verified. */
+  AI?: WorkersAi;
+  /** Server gate: "1" only after the 30-label benchmark passes on the deployed model. */
+  PHOTO_READING_ENABLED?: string;
+  /** Override the Workers AI vision model id without redeploying code. */
+  MYROTA_VISION_MODEL?: string;
   BETTER_AUTH_SECRET?: string;
   TURNSTILE_SECRET_KEY?: string;
   TURNSTILE_SITE_KEY?: string;

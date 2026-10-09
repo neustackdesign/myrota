@@ -20,7 +20,9 @@
     "auth:schema": "npx auth@1.6.0 generate --adapter drizzle --dialect sqlite --config ./lib/server/auth-schema-config.ts --output ./db/auth-schema.ts --yes",
     "start:vinext": "vite preview",
     "deploy:vinext": "vinext-cloudflare deploy",
-    "test:domain": "tsc -p tsconfig.domain-test.json && node scripts/run-domain-tests.mjs"
+    "test:domain": "tsc -p tsconfig.domain-test.json && node scripts/run-domain-tests.mjs",
+    "test:backend": "node scripts/run-backend-tests.mjs",
+    "catalogue:build": "node scripts/ingest/build-catalogue.mjs"
   },
   "dependencies": {
     "next": "16.3.8",

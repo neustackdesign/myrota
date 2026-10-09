@@ -1,0 +1,25 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2023", "DOM"],
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "outDir": ".backend-test",
+    "rootDir": ".",
+    "types": ["node"],
+    "baseUrl": ".",
+    "paths": { "@/*": ["./*"] }
+  },
+  "include": [
+    "lib/server/inci.ts",
+    "lib/server/catalogue-store.ts",
+    "lib/server/extract-validate.ts",
+    "lib/server/draft-rules.ts",
+    "lib/domain/types.ts",
+    "tests/backend/**/*.ts"
+  ]
+}

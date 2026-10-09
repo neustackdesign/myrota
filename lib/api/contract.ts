@@ -37,11 +37,19 @@ export interface MeResponse {
   hasRota: boolean;
 }
 
+/** Server-controlled feature flags. Absent/false = the client must keep the flow disabled. */
+export interface ClientCapabilities {
+  photoReading: boolean;
+  catalogue: boolean;
+}
+
 /** PROPOSED · GET /api/config — which sign-in methods are actually configured. Apple is never shown unless true. */
 export interface ClientConfigResponse {
   providers: { google: boolean; emailOtp: boolean; apple: boolean };
   turnstileSiteKey: string | null;
   vapidPublicKey: string | null;
+  /** Backward-compatible addition (Issue #7). Absent must be read as all-disabled. */
+  capabilities?: ClientCapabilities;
 }
 
 /** GET /api/shelf */

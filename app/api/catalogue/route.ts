@@ -1,6 +1,22 @@
-/** Real catalogue intentionally returns no unreviewed/sketchy "matches".
- * Local/imported SKU ingestion and verified provenance are Gate 2.
+import { searchCatalogue } from "@/lib/server/catalogue-store";
+import type { CatalogueSearchResponse } from "@/lib/api/contract";
+
+/**
+ * GET /api/catalogue?q= — real local starter-catalogue search (Open Beauty Facts,
+ * source_listed, ODbL). Results carry inciStatus "partial": identity is a real
+ * listing, but the INCI is not verified and nothing is analysed until the user
+ * confirms it. Membership here is NOT clinical verification.
+ *
+ * Bounded + abuse-controlled: query length capped, result count capped, no auth
+ * required (read-only public library), no user data touched, cache disabled.
  */
-export async function GET() {
-  return Response.json({ results: [] }, { headers: { "cache-control": "no-store" } });
+export function GET(request: Request): Response {
+  const url = new URL(request.url);
+  const q = (url.searchParams.get("q") ?? "").slice(0, 80);
+  const limitParam = Number(url.searchParams.get("limit") ?? "20");
+  const limit = Number.isFinite(limitParam) ? Math.min(Math.max(1, limitParam), 50) : 20;
+
+  const results = searchCatalogue(q, limit);
+  const body: CatalogueSearchResponse = { results };
+  return Response.json(body, { headers: { "cache-control": "no-store" } });
 }
