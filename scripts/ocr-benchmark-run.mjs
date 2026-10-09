@@ -19,7 +19,10 @@ import { dirname, join } from "node:path";
 const BASE = (process.argv[2] || "").replace(/\/$/, "");
 if (!BASE) { console.error("usage: ocr-benchmark-run.mjs <worker-base-url>"); process.exit(2); }
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
-const fixtures = JSON.parse(readFileSync(join(ROOT, "tests", "fixtures", "ocr-benchmark.json"), "utf8")).items;
+const LIMIT = process.argv.includes("--limit") ? Number(process.argv[process.argv.indexOf("--limit") + 1]) : Infinity;
+const fixtures = JSON.parse(readFileSync(join(ROOT, "tests", "fixtures", "ocr-benchmark.json"), "utf8")).items.slice(0, LIMIT)
+  // use a medium OBF render for latency; full-res is too slow on small vision models
+  .map((f) => ({ ...f, imageUrl: f.imageUrl.replace(/\.full\.jpg$/i, ".600.jpg") }));
 
 const norm = (s) => s.toLowerCase().replace(/\([^)]*\)/g, " ").replace(/\b\d+(\.\d+)?\s*%/g, " ").replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim();
 const ACTIVES = [/\bretin(ol|al|aldehyde|oin)\b/, /ascorbic acid|ascorbyl|ascorbate/, /niacinamide/, /salicylic acid/, /glycolic acid|lactic acid|mandelic acid/, /azelaic acid/, /benzoyl peroxide/];
