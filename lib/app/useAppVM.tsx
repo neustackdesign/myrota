@@ -3,14 +3,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ClientConfigResponse, ExtractionCandidate, MeResponse, MixResponse, MixSubjectRef, TodayResponse } from "../api/contract";
 import { ApiError, apiErrorMessage } from "../api/repository";
-import { contextNeeds, draftForUnknown, PROBLEM_TEXT } from "../client/drafts";
+import { contextNeeds, draftForUnknown, draftFromCatalogue, PROBLEM_TEXT } from "../client/drafts";
 import { canPromptInstall, detectPlatform, isStandalone, promptInstall } from "../client/pwa";
 import { newIdempotencyKey, useRepository } from "../client/runtime";
 import { countBucket, track } from "../analytics";
 import { isAnalysable } from "../domain/evidence";
 import { VERDICT_LABEL } from "../domain/mix";
 import { buildTodayView, type TodayView } from "../domain/today";
-import type { CareAnswer, CompletionSession, ProductCategory, ProductFormat, RetinoidExperience, ShelfProduct, UserPlacement } from "../domain/types";
+import type { CareAnswer, CatalogueProduct, CompletionSession, ProductCategory, ProductFormat, RetinoidExperience, ShelfProduct, UserPlacement } from "../domain/types";
 import {
   CATEGORY_ICON, CATEGORY_LABEL, DONE_TONES, HELD_REASON_TEXT, PROV_LABEL, SEA_GLASS, TRACK,
   dayStatementOf, designDays, designStatus, provenanceOf, sessionsFor, shelfRole, tagOf, toneOf, weekday,
@@ -66,7 +66,7 @@ interface UI {
   screen: Screen; hist: Screen[]; phase: "idle" | "out" | "in0"; dir: number;
   sheet: string | null; sheetIn: boolean; toast: string | null; busy: string | null; pop: boolean;
   source: Source; query: string; unkName: string; unkPlace: UserPlacement; unkFromReview: boolean;
-  pasteText: string; candidate: ExtractionCandidate | null; revStep: 1 | 2; revName: string; revCat: ProductCategory | null; revUse: ProductFormat | null;
+  pasteText: string; selectedCatalogue: CatalogueProduct | null; candidate: ExtractionCandidate | null; revStep: 1 | 2; revName: string; revCat: ProductCategory | null; revUse: ProductFormat | null;
   corrections: Record<string, string | null>; chipId: string | null; chipDraft: string;
   ctxRet: RetinoidExperience | null; ctxCare: string | null; buildN: number;
   stripSel: number; weekOpen: number; sheetDay: number; prodId: string | null;
@@ -83,7 +83,7 @@ interface Data {
 const INITIAL_UI: UI = {
   screen: "loading", hist: [], phase: "idle", dir: 1, sheet: null, sheetIn: false, toast: null, busy: null, pop: false,
   source: "organic", query: "", unkName: "", unkPlace: "pm", unkFromReview: false,
-  pasteText: "", candidate: null, revStep: 1, revName: "", revCat: null, revUse: null, corrections: {}, chipId: null, chipDraft: "",
+  pasteText: "", selectedCatalogue: null, candidate: null, revStep: 1, revName: "", revCat: null, revUse: null, corrections: {}, chipId: null, chipDraft: "",
   ctxRet: null, ctxCare: null, buildN: 0, stripSel: -1, weekOpen: -1, sheetDay: 0, prodId: null,
   mixA: null, mixB: null, mixSlot: "a", mixResult: null, whyOpen: false,
   shareType: "rota", shareFmt: "story", shareNames: false, shareOpts: false,
@@ -113,6 +113,9 @@ export function useAppVM() {
   const repo = useRepository();
   const [ui, setUi] = useState<UI>(INITIAL_UI);
   const [data, setData] = useState<Data>({ boot: "loading", bootError: null, me: null, config: null, shelf: [], today: null, skewMs: 0 });
+  const [catalogue, setCatalogue] = useState<{ query: string; results: CatalogueProduct[]; busy: boolean; error: string | null }>({
+    query: "", results: [], busy: false, error: null,
+  });
   const [tick, setTick] = useState(0);
   const uiRef = useRef(ui); uiRef.current = ui;
   const dataRef = useRef(data); dataRef.current = data;
@@ -226,6 +229,28 @@ export function useAppVM() {
     return () => { window.removeEventListener("popstate", onPop); document.removeEventListener("visibilitychange", onVis); clearInterval(iv); T.forEach(clearTimeout); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Search only when the SERVER has enabled a real catalogue. Ignore stale
+  // responses when someone types quickly or navigates to another screen.
+  useEffect(() => {
+    const query = ui.query.trim();
+    const enabled = data.config?.capabilities?.catalogue === true;
+    const visible = ui.screen === "add" || ui.sheet === "mixPick";
+    if (!enabled || !visible || query.length < 2) {
+      setCatalogue({ query: "", results: [], busy: false, error: null });
+      return;
+    }
+    let active = true;
+    setCatalogue({ query, results: [], busy: true, error: null });
+    const timer = setTimeout(() => {
+      repo.searchCatalogue(query).then((res) => {
+        if (active) setCatalogue({ query, results: Array.isArray(res.results) ? res.results.slice(0, 10) : [], busy: false, error: null });
+      }).catch(() => {
+        if (active) setCatalogue({ query, results: [], busy: false, error: "Library search is unavailable. Add this product by name instead." });
+      });
+    }, 320);
+    return () => { active = false; clearTimeout(timer); };
+  }, [ui.query, ui.screen, ui.sheet, data.config?.capabilities?.catalogue, repo]);
 
   // ---------------------------------------------------------------- derived domain view
   const view: TodayView | null = useMemo(() => {
@@ -377,9 +402,26 @@ export function useAppVM() {
     const Q = u.query.trim().toLowerCase();
     const dupes = Q ? shelf.filter((p) => p.name.toLowerCase().includes(Q)) : [];
     const inMix = u.sheet === "mixPick";
-    const results = inMix
-      ? shelf.filter((p) => !Q || p.name.toLowerCase().includes(Q)).map((p) => ({ name: p.name, meta: shelfRole(p), icon: CATEGORY_ICON[p.category], onShelf: false, canAdd: true, act: () => closeSheet(() => set((x) => ({ [x.mixSlot === "a" ? "mixA" : "mixB"]: { ref: { kind: "shelf", shelfProductId: p.id }, name: p.name, icon: CATEGORY_ICON[p.category] }, query: "" }) as Partial<UI>)) }))
+    const catalogueEnabled = d.config?.capabilities?.catalogue === true;
+    const photoEnabled = d.config?.capabilities?.photoReading === true;
+    const catalogueMatches = catalogueEnabled && catalogue.query.trim().toLowerCase() === Q
+      ? catalogue.results : [];
+    const shelfMatches = inMix
+      ? shelf.filter((p) => !Q || p.name.toLowerCase().includes(Q)).map((p) => ({
+          name: p.name, meta: shelfRole(p), icon: CATEGORY_ICON[p.category], onShelf: false, canAdd: true,
+          act: () => closeSheet(() => set((x) => ({ [x.mixSlot === "a" ? "mixA" : "mixB"]: { ref: { kind: "shelf", shelfProductId: p.id }, name: p.name, icon: CATEGORY_ICON[p.category] }, query: "" }) as Partial<UI>)),
+        }))
       : dupes.map((p) => ({ name: p.name, meta: `${p.brand ? p.brand + " · " : ""}${shelfRole(p)}`, icon: CATEGORY_ICON[p.category], onShelf: true, canAdd: false, act: () => {} }));
+    const catalogueRows = catalogueMatches.map((product) => ({
+      name: product.name,
+      meta: `${product.brand ? product.brand + " · " : ""}Product library · review before saving`,
+      icon: CATEGORY_ICON[product.category] ?? "jar", onShelf: false, canAdd: true,
+      act: () => {
+        if (inMix) closeSheet(() => set((x) => ({ [x.mixSlot === "a" ? "mixA" : "mixB"]: { ref: { kind: "catalogue", catalogueId: product.catalogueId }, name: product.name, icon: CATEGORY_ICON[product.category] ?? "jar" }, query: "" }) as Partial<UI>));
+        else openSheet("unknown", { unkName: product.name, unkPlace: "pm", unkFromReview: false, selectedCatalogue: product });
+      },
+    }));
+    const results = [...shelfMatches, ...catalogueRows];
     const n = shelf.length, src = u.source;
     const buildLabel = rota ? "Back to my shelf" : n >= 3 || src === "invite" || src === "mix" ? "Build my rota" : n === 0 ? "Add a product to start" : `Build with ${n} product${n > 1 ? "s" : ""}`;
     const cand = u.candidate;
@@ -451,9 +493,13 @@ export function useAppVM() {
 
       // add
       query: u.query, onQuery: (e: any) => set({ query: e.target.value }),
-      resultsTyped: Q ? results.slice(0, 5) : [], results, showUnknownRow: Q.length > 2 && !dupes.some((p) => p.name.toLowerCase() === Q),
+      resultsTyped: Q ? results.slice(0, 7) : [], results,
+      catalogueEnabled, photoEnabled,
+      catalogueBusy: catalogueEnabled && catalogue.busy && catalogue.query.trim().toLowerCase() === Q,
+      catalogueError: catalogueEnabled && catalogue.query.trim().toLowerCase() === Q ? catalogue.error : null,
+      showUnknownRow: Q.length > 2 && !dupes.some((p) => p.name.toLowerCase() === Q) && !catalogueRows.some((p) => p.name.toLowerCase() === Q),
       unknownRowSub: "Add it by name. We won't guess what's in it until its ingredients are read.",
-      openUnknown: () => openSheet("unknown", { unkName: u.query.trim(), unkPlace: "pm", unkFromReview: false }),
+      openUnknown: () => openSheet("unknown", { unkName: u.query.trim(), unkPlace: "pm", unkFromReview: false, selectedCatalogue: null }),
       hasAdded: n > 0, added: shelf.map((p) => ({ short: p.name, icon: CATEGORY_ICON[p.category], remove: async () => { try { await repo.removeProduct(p.id); await loadShelf(); toast("Removed"); } catch (e) { fail(e); } } })),
       addMix: src === "mix" && !!mixCarry, mixCarry,
       buildLabel: busy === "add" ? "Saving…" : buildLabel,
@@ -467,9 +513,11 @@ export function useAppVM() {
 
       // unknown sheet
       unkName: `“${u.unkName}”`, unkOpts: ([["am", "Morning"], ["pm", "Evening"], ["none", "Not yet"]] as const).map(([val, t]) => ({ t, bg: u.unkPlace === val ? "#F1E0D2" : "#FBFAF6", bc: u.unkPlace === val ? "#2A1911" : "#E8D8C9", pick: () => set({ unkPlace: val }) })),
-      unkTitle: u.unkFromReview ? "Where does it go?" : "Unknown product",
-      unkBody: u.unkFromReview ? "We read its ingredient list, but until that list is confirmed we won't check it against your other products. It goes only where you put it." : "We don't have a reviewed library yet, so we won't guess what's in it or check it against your other products. It goes on your shelf as Unknown.",
-      unkCta: busy === "add" ? "Saving…" : u.unkFromReview ? "Add to shelf" : "Add to shelf as unknown",
+      unkTitle: u.unkFromReview ? "Where does it go?" : u.selectedCatalogue ? "Found in product library" : "Unknown product",
+      unkBody: u.unkFromReview ? "We read its ingredient list, but until that list is confirmed we won't check it against your other products. It goes only where you put it."
+        : u.selectedCatalogue ? "This is a library listing, not a safety review. We'll save the source and your placement without calling its ingredients clinically verified."
+        : "We haven't identified this product's exact ingredients. It goes on your shelf where you put it, without unverified compatibility advice.",
+      unkCta: busy === "add" ? "Saving…" : u.selectedCatalogue ? "Add this product to shelf" : u.unkFromReview ? "Add to shelf" : "Add to shelf as unknown",
       addUnknown: async () => {
         if (busy) return;
         const name = u.unkName.trim().slice(0, 180);
@@ -477,8 +525,24 @@ export function useAppVM() {
         let ok: boolean;
         if (u.unkFromReview && cand) {
           ok = await addDraft({ brand: cand.brand ?? "", name, category: u.revCat ?? "other", format: u.revUse ?? "unknown", identityStatus: "user_confirmed", inciStatus: corrected ? "corrected" : cand.inciStatus, identityKey: null, variant: cand.variant, ingredients: candIngredients, placement: u.unkPlace, source: "paste", extractionId: cand.extractionId }, "Added to your shelf");
+        } else if (u.selectedCatalogue) {
+          const product = u.selectedCatalogue;
+          if (shelf.some((p) => p.name.toLowerCase() === product.name.toLowerCase() && p.brand.toLowerCase() === product.brand.toLowerCase())) {
+            toast("Already on your shelf"); return;
+          }
+          // A crowdsourced/library source does not confer clinical verification.
+          // Keep the source identifier for server-side validation.
+          const draft = draftFromCatalogue(product);
+          ok = await addDraft({
+            ...draft,
+            placement: u.unkPlace,
+            identityStatus: "user_confirmed",
+            identityKey: null,
+            inciStatus: product.ingredients.length ? "partial" : "unknown",
+            ingredients: product.ingredients.map((ing) => ({ ...ing, status: "read", activeClass: null, flagged: false })),
+          }, "Added from product library");
         } else ok = await addDraft(draftForUnknown(name, u.unkPlace), "Added as unknown");
-        if (ok) closeSheet(() => { set({ query: "", candidate: null, corrections: {}, revName: "" }); if (u.unkFromReview) go(u.source === "shelf" ? "shelf" : "add", -1); });
+        if (ok) closeSheet(() => { set({ query: "", candidate: null, selectedCatalogue: null, corrections: {}, revName: "" }); if (u.unkFromReview) go(u.source === "shelf" ? "shelf" : "add", -1); });
       },
 
       // paste + scan
@@ -494,6 +558,27 @@ export function useAppVM() {
           const res = await repo.extract({ method: "paste", side: "back", pastedText: text });
           if (!res.ok) { toast(PROBLEM_TEXT[res.problem]); return; }
           closeSheet(() => go("review", 1, { candidate: res.candidate, revStep: 1, revName: res.candidate.name ?? "", revCat: res.candidate.category, revUse: res.candidate.format && res.candidate.format !== "unknown" ? res.candidate.format : null, corrections: {}, pasteText: "" }));
+        } catch (e) { fail(e); } finally { set({ busy: null }); }
+      },
+      onPhoto: async (event: any) => {
+        const input = event.currentTarget as HTMLInputElement;
+        const image = input.files?.[0];
+        const method: "scan" | "gallery" = input.dataset.method === "scan" ? "scan" : "gallery";
+        input.value = "";
+        if (!image || busy) return;
+        if (!photoEnabled) { toast("Photo reading is not available yet. Paste the ingredients instead."); return; }
+        if (!["image/jpeg", "image/png", "image/webp"].includes(image.type)) { toast("Use a JPG, PNG or WebP photo of the label."); return; }
+        if (image.size > 8 * 1024 * 1024 || image.size === 0) { toast("Use a photo smaller than 8 MB."); return; }
+        set({ busy: "extract" });
+        try {
+          const res = await repo.extract({ method, side: "back" }, image);
+          if (!res.ok) { toast(PROBLEM_TEXT[res.problem]); return; }
+          go("review", 1, {
+            candidate: res.candidate, revStep: 1, revName: res.candidate.name ?? "",
+            revCat: res.candidate.category,
+            revUse: res.candidate.format && res.candidate.format !== "unknown" ? res.candidate.format : null,
+            corrections: {}, selectedCatalogue: null,
+          });
         } catch (e) { fail(e); } finally { set({ busy: null }); }
       },
       scan: { perm: true, view: false, glare: false, proc: false }, scanKicker: "Scan", procN: 0,
@@ -664,7 +749,7 @@ export function useAppVM() {
       androidRemOnly: () => closeSheet(),
     };
     return V;
-  }, [ui, data, view, set, go, back, openSheet, closeSheet, later, toast, fail, repo, loadShelf, addDraft, complete, boot]);
+  }, [ui, data, view, catalogue, set, go, back, openSheet, closeSheet, later, toast, fail, repo, loadShelf, addDraft, complete, boot]);
 
   // Start the real build when the building screen appears.
   const building = ui.screen === "building";
