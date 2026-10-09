@@ -514,7 +514,7 @@ export function useAppVM() {
       // unknown sheet
       unkName: `“${u.unkName}”`, unkOpts: ([["am", "Morning"], ["pm", "Evening"], ["none", "Not yet"]] as const).map(([val, t]) => ({ t, bg: u.unkPlace === val ? "#F1E0D2" : "#FBFAF6", bc: u.unkPlace === val ? "#2A1911" : "#E8D8C9", pick: () => set({ unkPlace: val }) })),
       unkCatalogue: !!u.selectedCatalogue,
-      unkCats: CATS.map(([val, t]) => ({ t, val, picked: u.revCat === val, pick: () => set({ revCat: val }) })),
+      unkCats: [...CATS, ["other", "Not sure"] as [ProductCategory, string]].map(([val, t]) => ({ t, val, picked: u.revCat === val, pick: () => set({ revCat: val }) })),
       unkFormats: ([["rinse_off", "Rinse-off"], ["leave_on", "Leave-on"], ["unknown", "Not sure"]] as const).map(([val, t]) => ({ t, picked: (u.revUse ?? "unknown") === val, pick: () => set({ revUse: val === "unknown" ? null : val }) })),
       unkTitle: u.unkFromReview ? "Where does it go?" : u.selectedCatalogue ? "Found in product library" : "Unknown product",
       unkBody: u.unkFromReview ? "We read its ingredient list, but until that list is confirmed we won't check it against your other products. It goes only where you put it."
