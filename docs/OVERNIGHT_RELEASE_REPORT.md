@@ -139,7 +139,8 @@ In a fresh private browser on the Preview:
 | Item | Value |
 |---|---|
 | Preview commits | see `git log feat/pilot-vercel-ui..claude/focused-cray-sahnof`; final head and Vercel deployment ID in PR #6 status |
-| Deployment `7582d53` | Vercel `AkyqPLtoSLPZw3AqakWj91H1GczQ` (Ready) |
+| Deployment `7582d53` | Vercel `AkyqPLtoSLPZw3AqakWj91H1GczQ` (Ready) · CI run 146 success |
+| Deployment `559f0a2` (code + docs head) | Vercel `4EvQUbBdwvEnj3p654X4vouCuCva` (Ready, 00:41 UTC) · CI run 147 success |
 | Worker | unchanged by this work. Last reported Gate 1 version `aa51201-c627-4459-b51e-d0dcf2867887`; current serving version **not re-verified** (Worker unreachable from the sandbox) |
 | D1 | `7992c70c-171b-4a03-8b8f-e88d1fcba9c8`: no reads or writes from this work; migrations 0001/0002 not re-run |
 
