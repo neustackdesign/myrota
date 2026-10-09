@@ -494,7 +494,7 @@ export function useAppVM() {
       // add
       query: u.query, onQuery: (e: any) => set({ query: e.target.value }),
       resultsTyped: Q ? results.slice(0, 7) : [], results,
-      catalogueEnabled, photoEnabled,
+      catalogueEnabled, photoEnabled, photoProcessing: busy === "extract",
       catalogueBusy: catalogueEnabled && catalogue.busy && catalogue.query.trim().toLowerCase() === Q,
       catalogueError: catalogueEnabled && catalogue.query.trim().toLowerCase() === Q ? catalogue.error : null,
       showUnknownRow: Q.length > 2 && !dupes.some((p) => p.name.toLowerCase() === Q) && !catalogueRows.some((p) => p.name.toLowerCase() === Q),
