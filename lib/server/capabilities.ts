@@ -15,11 +15,14 @@ import { catalogueSize } from "./catalogue-store";
 export interface Capabilities {
   photoReading: boolean;
   catalogue: boolean;
+  /** Exact UPC/EAN/GTIN barcode lookup, independently gated for old clients. */
+  barcodeLookup: boolean;
 }
 
 export function capabilitiesFor(env: MyrotaBindings): Capabilities {
   return {
     catalogue: catalogueSize > 0,
+    barcodeLookup: catalogueSize > 0,
     photoReading: Boolean(env.AI) && env.PHOTO_READING_ENABLED === "1",
   };
 }
