@@ -55,10 +55,11 @@ Slot → asset mapping lives in `lib/assets/slots.ts`; the slot briefs are in `d
 | Slot | Asset key | Pexels ID / creator | Focal point | Review |
 |---|---|---|---|---|
 | lp4-shot1, photo-welcome | landingHero | 7269486 · Anete Lusina | 50% 30% | pending visual + crop sign-off |
-| lp4-shot2 | ogImage | 5938589 · Sora Shimazaki | 60% 45% | pending (brief asks for hands + dropper; may not match) |
+| lp4-shot2 | — | 5938589 · Sora Shimazaki **rejected** (lotion, not hands + serum dropper) | — | Grain until one of 4612151 / 11946483 / 9395860 is approved |
 | lp4-shot4, photo-invite, share-friend | inviteHero | 6579978 · Alex Starnes | 50% 35% | pending |
 | lp4-shot6, photo-rota-complete | milestone | 5938600 · Sora Shimazaki | 45% 40% / 40% 35% | pending |
-| lp4-shot10, share-ring-window | shareStory | 7269467 · Anete Lusina | 50% 35–40% | pending |
+| share-ring-window | shareStory | 7269467 · Anete Lusina | 50% 40% | pending |
+| lp4-shot10 | — | 7269467 **rejected** for this slot (young woman; brief: older woman) | — | Grain until rebriefed |
 | lp4-shot3, 5, 7, 9, share-day3 | — | none | — | designed Grain field shown |
 
 All five files are still CDN-hosted (`images.pexels.com`) and have no recorded hash. The overnight sandbox could not reach Pexels to download, inspect or self-host them. On any load failure the slot renders nothing over its Grain field (no broken image). The OG/Twitter image is now the generated typographic card `app/opengraph-image.tsx`.

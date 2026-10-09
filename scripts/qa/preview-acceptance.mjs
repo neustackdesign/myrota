@@ -5,7 +5,11 @@
  * run it headed on a person's machine so a human can complete any challenge.
  *
  *   npm i -D playwright@1.56.1 && npx playwright install chromium   # once
- *   node scripts/qa/preview-acceptance.mjs <preview-url> [vercel-share-token]
+ *   node scripts/qa/preview-acceptance.mjs <preview-url>
+ *
+ * Protected Preview: provide the Vercel shareable-link token via the
+ * VERCEL_SHARE_TOKEN environment variable or the hidden prompt. Never pass
+ * it as an argument (shell history) and never commit or paste it.
  *
  * Creates two anonymous guest users with three clearly-labelled test
  * products ("QA …") and one rota in the live D1. Prints no cookies, tokens
@@ -15,8 +19,23 @@ import { createHash } from "node:crypto";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { chromium } from "playwright";
 
-const [BASE_RAW, SHARE] = process.argv.slice(2);
-if (!BASE_RAW) { console.error("usage: preview-acceptance.mjs <preview-url> [share-token]"); process.exit(2); }
+const [BASE_RAW, extra] = process.argv.slice(2);
+if (!BASE_RAW) { console.error("usage: preview-acceptance.mjs <preview-url>   (share token via VERCEL_SHARE_TOKEN or prompt)"); process.exit(2); }
+if (extra) { console.error("Refusing a share token on the command line; use VERCEL_SHARE_TOKEN or the prompt."); process.exit(2); }
+async function hiddenPrompt(q) {
+  if (!process.stdin.isTTY) return "";
+  process.stdout.write(q);
+  return await new Promise((resolve) => {
+    let v = ""; process.stdin.setRawMode(true); process.stdin.resume(); process.stdin.setEncoding("utf8");
+    const on = (ch) => {
+      if (ch === "\r" || ch === "\n" || ch === "\u0004") { process.stdin.setRawMode(false); process.stdin.pause(); process.stdin.off("data", on); process.stdout.write("\n"); resolve(v.trim()); }
+      else if (ch === "\u0003") process.exit(130);
+      else v += ch;
+    };
+    process.stdin.on("data", on);
+  });
+}
+const SHARE = process.env.VERCEL_SHARE_TOKEN || (await hiddenPrompt("Vercel share token (Enter to skip if the Preview is not protected): "));
 const BASE = BASE_RAW.replace(/\/$/, "");
 const OUT = `qa-evidence/${new Date().toISOString().replace(/[:.]/g, "-")}`;
 mkdirSync(OUT, { recursive: true });

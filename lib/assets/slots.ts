@@ -19,14 +19,16 @@ export interface SlotAsset {
 export const IMAGE_SLOTS: Record<string, SlotAsset | null> = {
   // Landing
   "lp4-shot1": { asset: "landingHero", focus: "50% 30%", review: "pending" },
-  "lp4-shot2": { asset: "ogImage", focus: "60% 45%", review: "pending" },
+  // Pexels 5938589 (lotion) does not match the hands + serum-dropper brief: Grain until an approved replacement.
+  "lp4-shot2": null,
   "lp4-shot3": null,
   "lp4-shot4": { asset: "inviteHero", focus: "50% 35%", review: "pending" },
   "lp4-shot5": null,
   "lp4-shot6": { asset: "milestone", focus: "45% 40%", review: "pending" },
   "lp4-shot7": null,
   "lp4-shot9": null,
-  "lp4-shot10": { asset: "shareStory", focus: "50% 35%", review: "pending" },
+  // Pexels 7269467 shows a young woman; the brief asks for an older woman: Grain until rebriefed.
+  "lp4-shot10": null,
   // PWA
   "photo-welcome": { asset: "landingHero", focus: "50% 30%", review: "pending" },
   "photo-rota-complete": { asset: "milestone", focus: "40% 35%", review: "pending" },
