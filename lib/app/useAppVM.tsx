@@ -66,7 +66,7 @@ interface UI {
   screen: Screen; hist: Screen[]; phase: "idle" | "out" | "in0"; dir: number;
   sheet: string | null; sheetIn: boolean; toast: string | null; busy: string | null; pop: boolean;
   source: Source; query: string; unkName: string; unkPlace: UserPlacement; unkFromReview: boolean;
-  pasteText: string; selectedCatalogue: CatalogueProduct | null; candidate: ExtractionCandidate | null; revStep: 1 | 2; revName: string; revCat: ProductCategory | null; revUse: ProductFormat | null;
+  pasteText: string; candidateMethod: "paste" | "scan" | "gallery"; selectedCatalogue: CatalogueProduct | null; candidate: ExtractionCandidate | null; revStep: 1 | 2; revName: string; revCat: ProductCategory | null; revUse: ProductFormat | null;
   corrections: Record<string, string | null>; chipId: string | null; chipDraft: string;
   ctxRet: RetinoidExperience | null; ctxCare: string | null; buildN: number;
   stripSel: number; weekOpen: number; sheetDay: number; prodId: string | null;
@@ -83,7 +83,7 @@ interface Data {
 const INITIAL_UI: UI = {
   screen: "loading", hist: [], phase: "idle", dir: 1, sheet: null, sheetIn: false, toast: null, busy: null, pop: false,
   source: "organic", query: "", unkName: "", unkPlace: "pm", unkFromReview: false,
-  pasteText: "", selectedCatalogue: null, candidate: null, revStep: 1, revName: "", revCat: null, revUse: null, corrections: {}, chipId: null, chipDraft: "",
+  pasteText: "", candidateMethod: "paste", selectedCatalogue: null, candidate: null, revStep: 1, revName: "", revCat: null, revUse: null, corrections: {}, chipId: null, chipDraft: "",
   ctxRet: null, ctxCare: null, buildN: 0, stripSel: -1, weekOpen: -1, sheetDay: 0, prodId: null,
   mixA: null, mixB: null, mixSlot: "a", mixResult: null, whyOpen: false,
   shareType: "rota", shareFmt: "story", shareNames: false, shareOpts: false,
@@ -524,7 +524,7 @@ export function useAppVM() {
         if (!name) { toast("Give it a name first"); return; }
         let ok: boolean;
         if (u.unkFromReview && cand) {
-          ok = await addDraft({ brand: cand.brand ?? "", name, category: u.revCat ?? "other", format: u.revUse ?? "unknown", identityStatus: "user_confirmed", inciStatus: corrected ? "corrected" : cand.inciStatus, identityKey: null, variant: cand.variant, ingredients: candIngredients, placement: u.unkPlace, source: "paste", extractionId: cand.extractionId }, "Added to your shelf");
+          ok = await addDraft({ brand: cand.brand ?? "", name, category: u.revCat ?? "other", format: u.revUse ?? "unknown", identityStatus: "user_confirmed", inciStatus: corrected ? "corrected" : cand.inciStatus, identityKey: null, variant: cand.variant, ingredients: candIngredients, placement: u.unkPlace, source: u.candidateMethod, extractionId: cand.extractionId }, "Added to your shelf");
         } else if (u.selectedCatalogue) {
           const product = u.selectedCatalogue;
           if (shelf.some((p) => p.name.toLowerCase() === product.name.toLowerCase() && p.brand.toLowerCase() === product.brand.toLowerCase())) {
@@ -557,7 +557,7 @@ export function useAppVM() {
         try {
           const res = await repo.extract({ method: "paste", side: "back", pastedText: text });
           if (!res.ok) { toast(PROBLEM_TEXT[res.problem]); return; }
-          closeSheet(() => go("review", 1, { candidate: res.candidate, revStep: 1, revName: res.candidate.name ?? "", revCat: res.candidate.category, revUse: res.candidate.format && res.candidate.format !== "unknown" ? res.candidate.format : null, corrections: {}, pasteText: "" }));
+          closeSheet(() => go("review", 1, { candidate: res.candidate, revStep: 1, revName: res.candidate.name ?? "", revCat: res.candidate.category, revUse: res.candidate.format && res.candidate.format !== "unknown" ? res.candidate.format : null, corrections: {}, candidateMethod: "paste", pasteText: "" }));
         } catch (e) { fail(e); } finally { set({ busy: null }); }
       },
       onPhoto: async (event: any) => {
@@ -577,14 +577,20 @@ export function useAppVM() {
             candidate: res.candidate, revStep: 1, revName: res.candidate.name ?? "",
             revCat: res.candidate.category,
             revUse: res.candidate.format && res.candidate.format !== "unknown" ? res.candidate.format : null,
-            corrections: {}, selectedCatalogue: null,
+            corrections: {}, selectedCatalogue: null, candidateMethod: method,
           });
         } catch (e) { fail(e); } finally { set({ busy: null }); }
       },
       scan: { perm: true, view: false, glare: false, proc: false }, scanKicker: "Scan", procN: 0,
-      scanTitle: "Label photos are coming soon", scanBody: "Reading ingredients from a photo isn't switched on in this pilot yet, so we won't guess from a picture. Paste the ingredient list, or add the product by name.",
-      scanPrimary: "Paste ingredients", scanSecondary: "Add it by name",
-      camAllow: () => openSheet("paste"), toGallery: () => back(), shutter: () => {}, openPaste: () => openSheet("paste"),
+      scanTitle: photoEnabled ? "Photograph the ingredient list" : "Label photos are coming soon",
+      scanBody: photoEnabled
+        ? "Keep the back label in focus and avoid glare. You'll review the extracted text before anything is saved."
+        : "Photo reading isn't enabled yet. Paste the ingredient list or add the product by name.",
+      scanPrimary: photoEnabled ? "Take label photo" : "Paste ingredients",
+      scanSecondary: photoEnabled ? "Choose from gallery" : "Add it by name",
+      camAllow: photoEnabled ? () => document.getElementById("myrota-scan-camera")?.click() : () => openSheet("paste"),
+      toGallery: photoEnabled ? () => document.getElementById("myrota-scan-gallery")?.click() : () => go("add", -1),
+      shutter: () => {}, openPaste: () => openSheet("paste"),
 
       // review (pasted INCI)
       revStepLabel: u.revStep === 1 ? "Step 1 of 2" : "Step 2 of 2", rs1: u.revStep === 1, rs2: u.revStep === 2, rsFlag: false,
