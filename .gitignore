@@ -13,3 +13,6 @@ coverage
 *.tsbuildinfo
 next-env.d.ts
 package-lock.json
+
+# live acceptance evidence (may contain screenshots of test accounts)
+qa-evidence/
