@@ -42,6 +42,11 @@ export interface ClientConfigResponse {
   providers: { google: boolean; emailOtp: boolean; apple: boolean };
   turnstileSiteKey: string | null;
   vapidPublicKey: string | null;
+  /** Server-owned gates. Older deployed Workers omit this entirely. */
+  capabilities?: {
+    photoReading?: boolean;
+    catalogue?: boolean;
+  };
 }
 
 /** GET /api/shelf */

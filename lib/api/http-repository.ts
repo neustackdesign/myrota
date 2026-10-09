@@ -50,7 +50,7 @@ export function createHttpRepository(options: HttpRepositoryOptions = {}): RotaR
   let sessionPromise: Promise<void> | null = null;
   let hasSession: boolean | null = null;
 
-  async function request<T>(method: string, path: string, body?: unknown, init: { auth?: boolean; raw?: BodyInit; headers?: Record<string, string> } = {}): Promise<T> {
+  async function request<T>(method: string, path: string, body?: unknown, init: { auth?: boolean; raw?: BodyInit; headers?: Record<string, string>; signal?: AbortSignal } = {}): Promise<T> {
     const headers: Record<string, string> = { Accept: "application/json", ...init.headers };
     // Product day boundaries are per-user at 04:00 in the user's IANA timezone.
     if (typeof Intl !== "undefined") headers["x-myrota-time-zone"] = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
@@ -65,6 +65,7 @@ export function createHttpRepository(options: HttpRepositoryOptions = {}): RotaR
         method,
         credentials: "same-origin",
         headers,
+        signal: init.signal,
         body: init.raw ?? (body !== undefined ? JSON.stringify(body) : undefined),
       });
     } catch {
@@ -144,7 +145,16 @@ export function createHttpRepository(options: HttpRepositoryOptions = {}): RotaR
     patchProduct: async (id: string, patch: PatchShelfRequest) =>
       (await write<{ product: ShelfProduct }>("PATCH", `/api/shelf/${encodeURIComponent(id)}`, patch)).product,
     removeProduct: (id) => write("DELETE", `/api/shelf/${encodeURIComponent(id)}`),
-    searchCatalogue: (q) => request("GET", `/api/catalogue?q=${encodeURIComponent(q)}`),
+    searchCatalogue: async (q) => {
+      const ctrl = new AbortController();
+      const timeout = setTimeout(() => ctrl.abort(), 12_000);
+      try {
+        return await request("GET", `/api/catalogue?q=${encodeURIComponent(q)}`, undefined, { signal: ctrl.signal });
+      } catch (error) {
+        if (ctrl.signal.aborted) throw new ApiError("unavailable", "Product search timed out. Try again or add the product by name.", 504);
+        throw error;
+      } finally { clearTimeout(timeout); }
+    },
     // Reading a label is exploration, not a write: do not prompt for an
     // anonymous session or a Turnstile challenge until saving to the Shelf.
     extract: async (req: ExtractRequest, image?: Blob) => {
@@ -153,7 +163,14 @@ export function createHttpRepository(options: HttpRepositoryOptions = {}): RotaR
         form.set("method", req.method);
         form.set("side", req.side);
         form.set("image", image);
-        return request("POST", "/api/extract", undefined, { raw: form });
+        const ctrl = new AbortController();
+        const timeout = setTimeout(() => ctrl.abort(), 30_000);
+        try {
+          return await request("POST", "/api/extract", undefined, { raw: form, signal: ctrl.signal });
+        } catch (error) {
+          if (ctrl.signal.aborted) throw new ApiError("unavailable", "Reading the label took too long. Retake it or paste the ingredients.", 504);
+          throw error;
+        } finally { clearTimeout(timeout); }
       }
       return request("POST", "/api/extract", req);
     },
