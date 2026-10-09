@@ -8,11 +8,16 @@ export function draftFromCatalogue(c: CatalogueProduct): ProductDraft {
     name: c.name,
     category: c.category,
     format: c.format,
-    identityStatus: "verified",
-    inciStatus: c.inciStatus,
-    identityKey: c.identityKey,
+    // A catalogue hit only identifies a user-selected listing. The server
+    // may validate a catalogueId against a verified source, but clients must
+    // not self-assert clinical/ingredient verification.
+    identityStatus: "user_confirmed",
+    inciStatus: c.ingredients.length ? "partial" : "unknown",
+    identityKey: null,
     variant: c.variant ?? null,
-    ingredients: c.ingredients,
+    ingredients: c.ingredients.map((ing) => ({
+      ...ing, status: "read", activeClass: null, flagged: false,
+    })),
     source: "search",
     catalogueId: c.catalogueId,
   };
