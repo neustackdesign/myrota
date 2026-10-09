@@ -546,7 +546,7 @@ export function useAppVM() {
             inciStatus: product.ingredients.length ? "partial" : "unknown",
             ingredients: product.ingredients.map((ing) => ({ ...ing, status: "read", activeClass: null, flagged: false })),
           }, "Added from product library");
-        } else ok = await addDraft({ ...draftForUnknown(name, u.unkPlace), category: u.revCat ?? "other", format: u.revUse ?? "unknown" }, "Added as unknown");
+        } else ok = await addDraft(draftForUnknown(name, u.unkPlace, u.revCat ?? "other", u.revUse ?? "unknown"), "Added as unknown");
         if (ok) closeSheet(() => { set({ query: "", candidate: null, selectedCatalogue: null, corrections: {}, revName: "" }); if (u.unkFromReview) go(u.source === "shelf" ? "shelf" : "add", -1); });
       },
 
