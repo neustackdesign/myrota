@@ -499,7 +499,7 @@ export function useAppVM() {
       catalogueError: catalogueEnabled && catalogue.query.trim().toLowerCase() === Q ? catalogue.error : null,
       showUnknownRow: Q.length > 2 && !dupes.some((p) => p.name.toLowerCase() === Q) && !catalogueRows.some((p) => p.name.toLowerCase() === Q),
       unknownRowSub: "Add it by name. We won't guess what's in it until its ingredients are read.",
-      openUnknown: () => openSheet("unknown", { unkName: u.query.trim(), unkPlace: "pm", unkFromReview: false, selectedCatalogue: null }),
+      openUnknown: () => openSheet("unknown", { unkName: u.query.trim(), unkPlace: "pm", unkFromReview: false, selectedCatalogue: null, revCat: "other", revUse: null }),
       hasAdded: n > 0, added: shelf.map((p) => ({ short: p.name, icon: CATEGORY_ICON[p.category], remove: async () => { try { await repo.removeProduct(p.id); await loadShelf(); toast("Removed"); } catch (e) { fail(e); } } })),
       addMix: src === "mix" && !!mixCarry, mixCarry,
       buildLabel: busy === "add" ? "Saving…" : buildLabel,
@@ -513,7 +513,7 @@ export function useAppVM() {
 
       // unknown sheet
       unkName: `“${u.unkName}”`, unkOpts: ([["am", "Morning"], ["pm", "Evening"], ["none", "Not yet"]] as const).map(([val, t]) => ({ t, bg: u.unkPlace === val ? "#F1E0D2" : "#FBFAF6", bc: u.unkPlace === val ? "#2A1911" : "#E8D8C9", pick: () => set({ unkPlace: val }) })),
-      unkCatalogue: !!u.selectedCatalogue,
+      unkConfirmType: true,
       unkCats: [...CATS, ["other", "Not sure"] as [ProductCategory, string]].map(([val, t]) => ({ t, val, picked: u.revCat === val, pick: () => set({ revCat: val }) })),
       unkFormats: ([["rinse_off", "Rinse-off"], ["leave_on", "Leave-on"], ["unknown", "Not sure"]] as const).map(([val, t]) => ({ t, picked: (u.revUse ?? "unknown") === val, pick: () => set({ revUse: val === "unknown" ? null : val }) })),
       unkTitle: u.unkFromReview ? "Where does it go?" : u.selectedCatalogue ? "Found in product library" : "Unknown product",
@@ -546,7 +546,7 @@ export function useAppVM() {
             inciStatus: product.ingredients.length ? "partial" : "unknown",
             ingredients: product.ingredients.map((ing) => ({ ...ing, status: "read", activeClass: null, flagged: false })),
           }, "Added from product library");
-        } else ok = await addDraft(draftForUnknown(name, u.unkPlace), "Added as unknown");
+        } else ok = await addDraft({ ...draftForUnknown(name, u.unkPlace), category: u.revCat ?? "other", format: u.revUse ?? "unknown" }, "Added as unknown");
         if (ok) closeSheet(() => { set({ query: "", candidate: null, selectedCatalogue: null, corrections: {}, revName: "" }); if (u.unkFromReview) go(u.source === "shelf" ? "shelf" : "add", -1); });
       },
 
