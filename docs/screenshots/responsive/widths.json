@@ -1,0 +1,245 @@
+[
+ {
+  "path": "/",
+  "w": 375,
+  "overflowX": false,
+  "sw": 375,
+  "cw": 375,
+  "height": 12959,
+  "errors": []
+ },
+ {
+  "path": "/",
+  "w": 390,
+  "overflowX": false,
+  "sw": 390,
+  "cw": 390,
+  "height": 12892,
+  "errors": []
+ },
+ {
+  "path": "/",
+  "w": 430,
+  "overflowX": false,
+  "sw": 430,
+  "cw": 430,
+  "height": 12795,
+  "errors": []
+ },
+ {
+  "path": "/",
+  "w": 768,
+  "overflowX": false,
+  "sw": 768,
+  "cw": 768,
+  "height": 13737,
+  "errors": []
+ },
+ {
+  "path": "/",
+  "w": 1024,
+  "overflowX": false,
+  "sw": 1024,
+  "cw": 1024,
+  "height": 13630,
+  "errors": []
+ },
+ {
+  "path": "/",
+  "w": 1280,
+  "overflowX": false,
+  "sw": 1280,
+  "cw": 1280,
+  "height": 14045,
+  "errors": []
+ },
+ {
+  "path": "/",
+  "w": 1440,
+  "overflowX": false,
+  "sw": 1440,
+  "cw": 1440,
+  "height": 15138,
+  "errors": []
+ },
+ {
+  "path": "/",
+  "w": 1920,
+  "overflowX": false,
+  "sw": 1920,
+  "cw": 1920,
+  "height": 15147,
+  "errors": []
+ },
+ {
+  "path": "/",
+  "w": 2560,
+  "overflowX": false,
+  "sw": 2560,
+  "cw": 2560,
+  "height": 17055,
+  "errors": []
+ },
+ {
+  "path": "/app",
+  "w": 375,
+  "overflowX": false,
+  "sw": 375,
+  "cw": 375,
+  "height": 844,
+  "errors": []
+ },
+ {
+  "path": "/app",
+  "w": 390,
+  "overflowX": false,
+  "sw": 390,
+  "cw": 390,
+  "height": 844,
+  "errors": []
+ },
+ {
+  "path": "/app",
+  "w": 430,
+  "overflowX": false,
+  "sw": 430,
+  "cw": 430,
+  "height": 844,
+  "errors": []
+ },
+ {
+  "path": "/app",
+  "w": 768,
+  "overflowX": false,
+  "sw": 768,
+  "cw": 768,
+  "height": 844,
+  "errors": []
+ },
+ {
+  "path": "/app",
+  "w": 1024,
+  "overflowX": false,
+  "sw": 1024,
+  "cw": 1024,
+  "height": 900,
+  "errors": []
+ },
+ {
+  "path": "/app",
+  "w": 1280,
+  "overflowX": false,
+  "sw": 1280,
+  "cw": 1280,
+  "height": 900,
+  "errors": []
+ },
+ {
+  "path": "/app",
+  "w": 1440,
+  "overflowX": false,
+  "sw": 1440,
+  "cw": 1440,
+  "height": 1080,
+  "errors": []
+ },
+ {
+  "path": "/app",
+  "w": 1920,
+  "overflowX": false,
+  "sw": 1920,
+  "cw": 1920,
+  "height": 1080,
+  "errors": []
+ },
+ {
+  "path": "/app",
+  "w": 2560,
+  "overflowX": false,
+  "sw": 2560,
+  "cw": 2560,
+  "height": 1440,
+  "errors": []
+ },
+ {
+  "path": "/legal/privacy",
+  "w": 375,
+  "overflowX": false,
+  "sw": 375,
+  "cw": 375,
+  "height": 1613,
+  "errors": []
+ },
+ {
+  "path": "/legal/privacy",
+  "w": 390,
+  "overflowX": false,
+  "sw": 390,
+  "cw": 390,
+  "height": 1561,
+  "errors": []
+ },
+ {
+  "path": "/legal/privacy",
+  "w": 430,
+  "overflowX": false,
+  "sw": 430,
+  "cw": 430,
+  "height": 1398,
+  "errors": []
+ },
+ {
+  "path": "/legal/privacy",
+  "w": 768,
+  "overflowX": false,
+  "sw": 768,
+  "cw": 768,
+  "height": 1167,
+  "errors": []
+ },
+ {
+  "path": "/legal/privacy",
+  "w": 1024,
+  "overflowX": false,
+  "sw": 1024,
+  "cw": 1024,
+  "height": 1130,
+  "errors": []
+ },
+ {
+  "path": "/legal/privacy",
+  "w": 1280,
+  "overflowX": false,
+  "sw": 1280,
+  "cw": 1280,
+  "height": 1132,
+  "errors": []
+ },
+ {
+  "path": "/legal/privacy",
+  "w": 1440,
+  "overflowX": false,
+  "sw": 1440,
+  "cw": 1440,
+  "height": 1132,
+  "errors": []
+ },
+ {
+  "path": "/legal/privacy",
+  "w": 1920,
+  "overflowX": false,
+  "sw": 1920,
+  "cw": 1920,
+  "height": 1132,
+  "errors": []
+ },
+ {
+  "path": "/legal/privacy",
+  "w": 2560,
+  "overflowX": false,
+  "sw": 2560,
+  "cw": 2560,
+  "height": 1440,
+  "errors": []
+ }
+]

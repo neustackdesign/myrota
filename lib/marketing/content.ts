@@ -8,10 +8,10 @@
  */
 export const PUBLIC_MARKETING = {
   seo: {
-    title: "myrota — a seven-day rota from your own shelf",
+    title: "myrota — Your shelf, in the right order.",
     titleTemplate: "%s · myrota",
     description:
-      "Turn the skincare you already own into a seven-day morning and evening plan, and follow it one day at a time.",
+      "Add what's already in your bathroom. myrota plans the week — which nights for the strong stuff, which nights to rest — and tells you what goes on tonight.",
     applicationName: "myrota",
   },
   landing: {
