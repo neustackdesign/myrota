@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { draftFromCatalogue } from "../../lib/client/drafts";
+import { draftFromCatalogue, draftForUnknown } from "../../lib/client/drafts";
 import type { CatalogueProduct } from "../../lib/domain/types";
 
 const listing: CatalogueProduct = {
@@ -35,6 +35,17 @@ test("unreviewed catalogue data can never promote an ingredient into a verified 
 
 test("catalogue listing without ingredients remains unknown", () => {
   const draft = draftFromCatalogue({ ...listing, ingredients: [] });
+  assert.equal(draft.inciStatus, "unknown");
+  assert.deepEqual(draft.ingredients, []);
+});
+
+test("manual product classification preserves unknown ingredient evidence and the user's chosen session", () => {
+  const draft = draftForUnknown("My evening cleanser", "pm", "cleanser", "rinse_off");
+  assert.equal(draft.name, "My evening cleanser");
+  assert.equal(draft.category, "cleanser");
+  assert.equal(draft.format, "rinse_off");
+  assert.equal(draft.placement, "pm");
+  assert.equal(draft.identityStatus, "unknown");
   assert.equal(draft.inciStatus, "unknown");
   assert.deepEqual(draft.ingredients, []);
 });
