@@ -1,6 +1,6 @@
 import type { ExtractionCandidate, ExtractProblem, ProductDraft } from "../api/contract";
 import { evidenceActiveClasses } from "../domain/evidence";
-import type { CatalogueProduct, ShelfProduct, UserPlacement } from "../domain/types";
+import type { CatalogueProduct, ProductCategory, ProductFormat, ShelfProduct, UserPlacement } from "../domain/types";
 
 export function draftFromCatalogue(c: CatalogueProduct): ProductDraft {
   return {
@@ -23,12 +23,12 @@ export function draftFromCatalogue(c: CatalogueProduct): ProductDraft {
   };
 }
 
-export function draftForUnknown(name: string, placement: UserPlacement): ProductDraft {
+export function draftForUnknown(name: string, placement: UserPlacement, category: ProductCategory = "other", format: ProductFormat = "unknown"): ProductDraft {
   return {
     brand: "",
     name,
-    category: "other",
-    format: "unknown",
+    category,
+    format,
     identityStatus: "unknown",
     inciStatus: "unknown",
     identityKey: null,
