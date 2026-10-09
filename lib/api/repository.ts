@@ -105,6 +105,9 @@ export class ApiError extends Error {
 }
 
 export function apiErrorMessage(error: unknown): string {
+  // Verification failures occur before the first write. Surface the specific
+  // retry guidance instead of hiding it behind a generic toast.
+  if (error instanceof Error && error.name === "VerificationError") return error.message;
   if (error instanceof ApiError) {
     switch (error.kind) {
       case "network":
