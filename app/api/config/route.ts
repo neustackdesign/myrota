@@ -1,4 +1,5 @@
 import { bindings } from "@/lib/server/cloudflare-env";
+import { capabilitiesFor } from "@/lib/server/capabilities";
 
 export async function GET() {
   const e = await bindings();
@@ -13,6 +14,8 @@ export async function GET() {
       },
       turnstileSiteKey: e.TURNSTILE_SITE_KEY || null,
       vapidPublicKey: null,
+      // Backward-compatible addition. Absent capabilities = disabled.
+      capabilities: capabilitiesFor(e),
     },
     { headers: { "cache-control": "no-store" } },
   );

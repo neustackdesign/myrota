@@ -1,4 +1,5 @@
 import { bindings } from "./cloudflare-env";
+import { getCatalogueRecord } from "./catalogue-store";
 
 const EVIDENCE = new Set(["verified", "user_confirmed", "partial", "unknown", "corrected"]);
 const CATEGORY = new Set(["cleanser", "toner", "serum", "treatment", "moisturiser", "sunscreen", "other"]);
@@ -96,10 +97,22 @@ export async function addShelfProduct(ownerUserId: string, input: unknown) {
     throw new Error("validation:enum");
   }
 
-  // Gate 1 cannot re-verify client-provided catalogue/extraction IDs yet.
-  // Never persist a client assertion as a verified canonical identity.
+  // Never persist a client assertion as a verified canonical identity. "verified"
+  // (matched to library) can only be granted by a server source, never the client.
   if (identityStatus === "verified" || inciStatus === "verified") {
     throw new Error("validation:verified_requires_server_provenance");
+  }
+
+  // Catalogue linkage is re-resolved server-side. A client-supplied catalogueId
+  // that does not exist is rejected; the stable identity key (real barcode) is
+  // taken from OUR record, never from the client. Membership is source_listed,
+  // so identity is at most user_confirmed here — never verified.
+  const catalogueId = typeof draft.catalogueId === "string" ? draft.catalogueId.slice(0, 160) : null;
+  let identityKey: string | null = null;
+  if (catalogueId) {
+    const record = getCatalogueRecord(catalogueId);
+    if (!record) throw new Error("validation:catalogue_not_found");
+    identityKey = record.product.identityKey;
   }
 
   const ingredients = Array.isArray(draft.ingredients) ? draft.ingredients : [];
@@ -115,26 +128,37 @@ export async function addShelfProduct(ownerUserId: string, input: unknown) {
     flags: [],
     provenance: {
       extractionId: typeof draft.extractionId === "string" ? draft.extractionId.slice(0, 160) : null,
-      catalogueId: typeof draft.catalogueId === "string" ? draft.catalogueId.slice(0, 160) : null,
+      catalogueId,
     },
   });
 
   const db = (await bindings()).DB;
-  await db.prepare(
-    `INSERT INTO shelf_items
-      (id, owner_user_id, identity_key, brand, product_name, product_type, product_format,
-       identity_confidence, ingredient_confidence, inci_json, evidence_json, source,
-       finished_at, created_at, updated_at)
-     VALUES (?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?)`
-  ).bind(
-    id, ownerUserId, brand, name, category, format, identityStatus, inciStatus,
-    serializedIngredients, evidence, source, now, now
-  ).run();
+  try {
+    await db.prepare(
+      `INSERT INTO shelf_items
+        (id, owner_user_id, identity_key, brand, product_name, product_type, product_format,
+         identity_confidence, ingredient_confidence, inci_json, evidence_json, source,
+         finished_at, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?)`
+    ).bind(
+      id, ownerUserId, identityKey, brand, name, category, format, identityStatus, inciStatus,
+      serializedIngredients, evidence, source, now, now
+    ).run();
+  } catch (err) {
+    // Same canonical identity (barcode) already on this owner's shelf: return the
+    // existing item instead of a duplicate row. NULL identity_key never collides.
+    if (identityKey) {
+      const existing = await db.prepare("SELECT * FROM shelf_items WHERE owner_user_id = ? AND identity_key = ?")
+        .bind(ownerUserId, identityKey).first<ShelfRow>();
+      if (existing) return { product: shelfRowToProduct(existing), duplicate: true };
+    }
+    throw err;
+  }
 
   const row = await db.prepare("SELECT * FROM shelf_items WHERE id = ? AND owner_user_id = ?")
     .bind(id, ownerUserId).first<ShelfRow>();
   if (!row) throw new Error("insert_failed");
-  return shelfRowToProduct(row);
+  return { product: shelfRowToProduct(row), duplicate: false };
 }
 
 
