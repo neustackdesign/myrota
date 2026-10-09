@@ -1,0 +1,45 @@
+import os,re,sys
+d,out=sys.argv[1],sys.argv[2]
+src=open(out).read()
+head=src[:src.index('\nfunction ')]
+PATCHES = [
+  ("S_scan", "Scan the back label first", "scanTitle"),
+  ("S_scan", "The ingredient list tells us more than the name. We'll use your camera only while this screen is open. Photos aren't kept.", "scanBody"),
+  ("S_scan", "Use camera", "scanPrimary"),
+  ("S_scan", "Choose from gallery", "scanSecondary"),
+  ("S_add", "Not in our library. Scan the label, or add it as unknown.", "unknownRowSub"),
+  ("SH_invite", "Invite one friend", "inviteTitle"),
+  ("SH_invite", "They build their own rota from their own shelf. You'll see each other's streak, nothing else.", "inviteBody"),
+  ("SH_invite", "myrota.app/i/a8Kb4Q", "inviteLink"),
+  ("S_friends", "One link works for a chat, a group or your Status. Each person builds their own rota.", "friendsEmptyLine"),
+  ("S_friends", "Invite a friend", "inviteBtnLabel"),
+  ("SH_name", "What should friends call you?", "nameTitle"),
+  ("SH_name", "Shown only to people who join from your link. You can change it in Profile.", "nameHint"),
+  ("SH_install", "Open myrota in one tap and get your reminders.", "androidLine"),
+  ("SH_share", "Save image", "saveImageLabel"),
+  ("S_rotaComplete", "Plan next week", "planNextLabel"),
+  ("S_review", "Snap the front", "snapFrontLabel"),
+  ("SH_unknown", "Unknown product", "unkTitle"),
+  ("SH_unknown", "It isn't in our library, so we won't guess what's in it or check it against your other products. It goes on your shelf as Unknown.", "unkBody"),
+  ("SH_unknown", "Add to shelf as unknown", "unkCta"),
+]
+names=sorted(f[:-4] for f in os.listdir(d) if re.match(r'(S|SH)_\w+\.tsx$',f))
+parts=[]
+for n in names:
+    t=open(os.path.join(d,n+'.tsx')).read()
+    bodies=[b.strip() for b in re.split(r'^// ---- .*\n',t,flags=re.M) if b.strip()]
+    kind,key=n.split('_',1)
+    body=bodies[0]
+    for (scr, orig, var) in PATCHES:
+        if scr == n:
+            import json
+            needle = '>' + orig + '<'
+            assert body.count(needle) == 1, (n, orig, body.count(needle))
+            body = body.replace(needle, '>{v.' + var + ' ?? ' + json.dumps(orig, ensure_ascii=False) + '}<')
+    parts.append((kind,key,body))
+s=head+'\n'
+for kind,key,body in parts:
+    s+=f'\nfunction {kind}_{key}(v: V): ReactNode {{\n  return (<>{body}</>);\n}}\n'
+s+='\nexport const SCREENS: Record<string, (v: V) => ReactNode> = {\n'+''.join(f'  {k}: S_{k},\n' for kind,k,_ in parts if kind=='S')+'};\n'
+s+='\nexport const SHEETS: Record<string, (v: V) => ReactNode> = {\n'+''.join(f'  {k}: SH_{k},\n' for kind,k,_ in parts if kind=='SH')+'};\n'
+open(out,'w').write(s)

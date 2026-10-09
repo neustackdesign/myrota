@@ -1,99 +1,92 @@
-import { COLOR, type RingSegment } from "@/lib/ui/ring";
-
 /**
- * Rota Ring — seven segments with a gap at twelve (Brand v4).
- * Rebuilt from the Brand v4 / Component System spec; the original <RotaRing>
- * source component was not supplied (see docs/ASSET_MANIFEST.md).
- *
- * Done: skin tone (non-monotonic). Recovery done / rescued: Sea glass (rescued
- * adds a dotted Tide hairline so it never reads as a real completion).
- * Today: Ember. Missed: thin Sienna hairline on the track. Future: track.
+ * Rota Ring — port of Brand v4 `RotaRing.dc.html` (v6.1 states): seven
+ * segments, optional per-segment tones, `x` tone = missed Sienna hairline,
+ * hollow (today), missed notch, rescued Sea-glass with an inner Tide stroke,
+ * lit accent overlay and the 520ms fill transition.
  */
 export interface RotaRingProps {
-  segments: RingSegment[];
-  size?: number;
-  strokeWidth?: number;
+  size?: number | string;
+  filled?: number | string;
+  start?: number | string;
+  sw?: number | string;
+  gap?: number | string;
   track?: string;
-  /** Index of a segment that just completed: animates its fill (520ms). */
-  fillIndex?: number | null;
-  /** Override all segment colours (e.g. Building screen on Lagoon). */
-  mono?: { color: string; filled: number; trackOpacity?: number } | null;
+  ink?: string;
+  trackOpacity?: number | string;
+  accent?: string;
+  tones?: string;
+  lit?: number | string;
+  hollow?: number | string;
+  hollowInk?: string;
+  /** CSV of segment indices. */
+  missed?: string;
+  rescued?: string;
   label?: string;
+  style?: React.CSSProperties;
 }
 
-function arc(cx: number, cy: number, r: number, startDeg: number, endDeg: number) {
-  const toXY = (deg: number) => {
-    const rad = ((deg - 90) * Math.PI) / 180;
-    return [cx + r * Math.cos(rad), cy + r * Math.sin(rad)];
-  };
-  const [x1, y1] = toXY(startDeg);
-  const [x2, y2] = toXY(endDeg);
-  const large = endDeg - startDeg > 180 ? 1 : 0;
-  return `M ${x1.toFixed(3)} ${y1.toFixed(3)} A ${r} ${r} 0 ${large} 1 ${x2.toFixed(3)} ${y2.toFixed(3)}`;
-}
+const idx = (v: unknown) =>
+  String(v ?? "").split(",").map((x) => x.trim()).filter((x) => x !== "").map(Number).filter((x) => x >= 0 && x < 7);
 
-export function RotaRing({ segments, size = 134, strokeWidth = 12, track = COLOR.track, fillIndex = null, mono = null, label }: RotaRingProps) {
-  const r = (size - strokeWidth) / 2 - 1;
-  const c = size / 2;
-  const gap = 7;
-  const span = 360 / 7;
+export function RotaRing(p: RotaRingProps) {
+  const s = +(p.size ?? 120), sw = +(p.sw ?? 14), g = +(p.gap ?? 7);
+  const n = Math.max(0, Math.min(7, +(p.filled ?? 0))), st = +(p.start ?? 0);
+  const C = 2 * Math.PI * 42, seg = C / 7, d = seg - g;
+  const track = p.track ?? p.ink ?? "#1E120E";
+  const tones = String(p.tones || "").split(",").map((t) => t.trim()).filter(Boolean);
+  const hasT = tones.length >= 7;
+  const segDash = `${d} ${C - d}`;
+  const segs = Array.from({ length: 7 }, (_, i) => {
+    const tk = hasT && i < n ? tones[i] : track;
+    return { c: tk === "x" ? "#845535" : tk, w: tk === "x" ? Math.max(2, sw * 0.28) : sw, o: -g / 2 - i * seg, d: segDash };
+  });
+  const hol = +(p.hollow ?? -1), missed = idx(p.missed), resc = idx(p.rescued);
+  const hw = (2 * 100) / s;
+  const notch = Math.max(hw * 1.6, 2.4);
+  missed.forEach((i) => {
+    const hh = (d - notch) / 2;
+    segs[i] = { c: track, w: sw, o: -g / 2 - i * seg, d: `${hh} ${notch} ${hh} ${C - d}` };
+  });
+  resc.forEach((i) => { segs[i] = { ...segs[i], c: "#9ED8CF", w: sw }; });
+  const rr = 42 - sw / 2 + hw / 2, C2 = 2 * Math.PI * rr, k = rr / 42;
+  let resDash = "0 " + C2, resOff = 0;
+  if (resc.length) {
+    const pat: number[] = [];
+    let pos = 0;
+    resc.slice().sort((a, b) => a - b).forEach((i) => { const st0 = (g / 2 + i * seg) * k; pat.push(st0 - pos, d * k); pos = st0 + d * k; });
+    const lead = pat.shift() as number;
+    pat.push(C2 - pos + lead);
+    resDash = pat.join(" ");
+    resOff = -lead;
+  }
+  let hollowD = "M0 0";
+  if (hol >= 0 && hol < 7) {
+    segs[hol] = { ...segs[hol], c: "transparent" };
+    const ri = 42 - sw / 2 + hw / 2, ro = 42 + sw / 2 - hw / 2, a0 = ((g / 2 + hol * seg) / C) * 2 * Math.PI - Math.PI / 2, a1 = a0 + (d / C) * 2 * Math.PI;
+    const P = (r: number, a: number) => (50 + r * Math.cos(a)).toFixed(2) + " " + (50 + r * Math.sin(a)).toFixed(2);
+    hollowD = "M" + P(ro, a0) + " A" + ro + " " + ro + " 0 0 1 " + P(ro, a1) + " L" + P(ri, a1) + " A" + ri + " " + ri + " 0 0 0 " + P(ri, a0) + " Z";
+  }
+  let fillDash: string, off: number;
+  if (hasT) {
+    const lit = +(p.lit ?? -1);
+    fillDash = lit >= 0 ? segDash : `0 ${C}`;
+    off = -g / 2 - Math.max(0, lit) * seg;
+  } else {
+    const fill: number[] = [];
+    for (let i = 0; i < n; i++) fill.push(d, i < n - 1 ? g : C - n * seg + g);
+    fillDash = n ? fill.join(" ") : `0 ${C}`;
+    off = -g / 2 - st * seg;
+  }
   return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} role={label ? "img" : undefined} aria-label={label} aria-hidden={label ? undefined : true}>
-      {Array.from({ length: 7 }, (_, i) => {
-        const start = i * span + gap / 2;
-        const end = (i + 1) * span - gap / 2;
-        const d = arc(c, c, r, start, end);
-        if (mono) {
-          const on = i < mono.filled;
-          return (
-            <path key={i} d={d} fill="none" strokeLinecap="butt" strokeWidth={strokeWidth} stroke={mono.color} strokeOpacity={on ? 1 : mono.trackOpacity ?? 0.22} style={{ transition: "stroke-opacity 260ms ease" }} />
-          );
-        }
-        const seg = segments[i];
-        const kind = seg?.kind ?? "future";
-        const trackPath = <path d={d} fill="none" strokeWidth={strokeWidth} stroke={track} />;
-        if (kind === "future" || kind === "future_recovery") return <g key={i}>{trackPath}</g>;
-        if (kind === "missed") {
-          return (
-            <g key={i}>
-              {trackPath}
-              <path d={d} fill="none" strokeWidth={2} stroke={COLOR.sienna} />
-            </g>
-          );
-        }
-        const animate = fillIndex === i;
-        return (
-          <g key={i}>
-            {trackPath}
-            <path
-              d={d}
-              fill="none"
-              strokeWidth={strokeWidth}
-              stroke={seg.color}
-              pathLength={1}
-              className={animate ? "ring-fill" : undefined}
-            />
-            {kind === "rescued" ? (
-              <path d={d} fill="none" strokeWidth={2} stroke={COLOR.tide} strokeDasharray="2 3" />
-            ) : null}
-          </g>
-        );
-      })}
-    </svg>
-  );
-}
-
-/** Static seven-tone ring for icons and the wordmark o. */
-export function ToneRing({ tones, size = 40, strokeWidth = 8, track = COLOR.track }: { tones: string[]; size?: number; strokeWidth?: number; track?: string }) {
-  const r = (size - strokeWidth) / 2;
-  const c = size / 2;
-  const span = 360 / 7;
-  const gap = 8;
-  return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden>
-      {Array.from({ length: 7 }, (_, i) => (
-        <path key={i} d={arc(c, c, r, i * span + gap / 2, (i + 1) * span - gap / 2)} fill="none" strokeWidth={strokeWidth} stroke={tones[i] ?? track} />
-      ))}
-    </svg>
+    <div style={{ width: s + "px", height: s + "px", display: "flex", flex: "none", ...p.style }} role={p.label ? "img" : undefined} aria-label={p.label} aria-hidden={p.label ? undefined : true}>
+      <svg viewBox="0 0 100 100" width="100%" height="100%" style={{ overflow: "visible", display: "block" }}>
+        {segs.map((x, i) => (
+          <circle key={i} cx="50" cy="50" r="42" transform="rotate(-90 50 50)" style={{ fill: "none", stroke: x.c, strokeOpacity: p.trackOpacity ?? 1, strokeWidth: x.w, strokeDasharray: x.d, strokeDashoffset: x.o }} />
+        ))}
+        <circle cx="50" cy="50" r="42" transform="rotate(-90 50 50)" style={{ fill: "none", stroke: p.accent ?? "#FF5A1F", strokeWidth: sw, strokeDasharray: fillDash, strokeDashoffset: off, transition: "stroke-dasharray 520ms cubic-bezier(.2,.8,.2,1)" }} />
+        <circle cx="50" cy="50" r={rr} transform="rotate(-90 50 50)" style={{ fill: "none", stroke: "#1F7F7E", strokeWidth: hw, strokeDasharray: resDash, strokeDashoffset: resOff }} />
+        <path d={hollowD} style={{ fill: "none", stroke: p.hollowInk ?? "#2A1911", strokeWidth: hw, strokeLinejoin: "round" }} />
+      </svg>
+    </div>
   );
 }
