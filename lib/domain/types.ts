@@ -135,7 +135,7 @@ export interface CatalogueProduct {
   name: string;
   category: ProductCategory;
   format: ProductFormat;
-  identityKey: string;
+  identityKey: string | null;
   variant?: string | null;
   ingredients: InciIngredient[];
   inciStatus: EvidenceStatus;

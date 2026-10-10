@@ -70,3 +70,20 @@ test("UPC / EAN / GTIN-14 variants normalize to the same identifier, invalid che
 test("unknown but well-formed GTIN does not guess an adjacent product", () => {
   assert.equal(findCatalogueByBarcode("12345670"), null);
 });
+
+test("Minimalist PHA toner can be discovered by front-label text without pretending to know the SKU", () => {
+  const matches = searchCatalogue("Polyhydroxy Acid").filter((p) => p.brand === "Minimalist");
+  assert.equal(matches.length, 2, "UAE/global and India declarations are distinct");
+  for (const match of matches) {
+    assert.equal(match.identityKey, null, "no product barcode was observed");
+    assert.equal(match.inciStatus, "partial", "manufacturer declaration is not confirmed label INCI");
+    assert.ok(match.ingredients.length > 30, "official source has declared ingredient text");
+    const record = getCatalogueRecord(match.catalogueId);
+    assert.ok(record);
+    assert.equal(record!.provenance.level, "source_listed");
+    assert.ok(record!.provenance.sourceUrl.startsWith("https://"));
+  }
+  assert.notDeepEqual(matches[0].ingredients.map((i) => i.text),
+    matches[1].ingredients.map((i) => i.text),
+    "different regional official formulations must not be merged");
+});

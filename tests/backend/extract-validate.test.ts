@@ -27,3 +27,8 @@ test("looksLikeIngredientList accepts a real INCI list, rejects prose/empty", ()
   // two vague words are not a list
   assert.equal(looksLikeIngredientList("face cream", ["face cream"]), false);
 });
+
+test("front-label active claims are not mistaken for an INCI declaration", () => {
+  const headline = "Polyhydroxy Acid, Amino Acids, Polyglutamic Acid";
+  assert.equal(looksLikeIngredientList(headline, headline.split(", ")), false);
+});

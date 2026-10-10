@@ -52,3 +52,8 @@ test("splitInciList splits only at deterministic separators and caps", () => {
   assert.equal(splitInciList("").length, 0);
   assert.ok(splitInciList(Array(500).fill("Aqua").join(",")).length <= 200);
 });
+
+test("splitInciList preserves numbered INCI names like 1,2-Hexanediol", () => {
+  assert.deepEqual(splitInciList("Aqua, 1,2-Hexanediol, Niacinamide, Salicylic Acid"),
+    ["Aqua", "1,2-Hexanediol", "Niacinamide", "Salicylic Acid"]);
+});

@@ -13,6 +13,7 @@ writeFileSync(join(out, "package.json"), JSON.stringify({ type: "commonjs" }));
 // tsc does not copy JSON data files to outDir; the compiled catalogue-store needs it alongside.
 mkdirSync(join(out, "lib", "server"), { recursive: true });
 copyFileSync(join("lib", "server", "catalogue-data.json"), join(out, "lib", "server", "catalogue-data.json"));
+copyFileSync(join("lib", "server", "catalogue-manufacturer.json"), join(out, "lib", "server", "catalogue-manufacturer.json"));
 
 const dir = join(out, "tests", "backend");
 const files = readdirSync(dir).filter((f) => f.endsWith(".test.js")).map((f) => join(dir, f));

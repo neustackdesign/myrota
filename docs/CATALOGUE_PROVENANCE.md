@@ -27,3 +27,29 @@ Quality gates in the ingester: real barcode (8–14 digits), real product name, 
 ## Known limitations
 - Some OBF entries are non-English (French/Portuguese listings) or have imperfect separators — acceptable because the user confirms/corrects on Review before anything is used.
 - No barcode-scan verification yet; identity on Shelf-add from catalogue is at most `user_confirmed`, never `verified`.
+
+## Expansion prepared (not yet deployed)
+
+The rebuild script now queries approximately 40 Nigerian/UAE/GCC-relevant brands
+with bounded per-brand results, explicit ~6.5-second spacing between Open Beauty
+Facts search requests and a single 429 retry. Default target cap is 800 products.
+This is a **collection capacity**, not a verified new catalogue count: run
+`npm run catalogue:build` in an internet-enabled environment and inspect the
+actual results before committing the generated JSON. The command refuses to
+replace the existing 196-record seed with a smaller/failed crawl.
+
+The separate `catalogue-manufacturer.json` includes region-attributed Minimalist
+PHA toner declarations for India and UAE/global. Manufacturer-listed INCI is
+not assumed to match the user's package, and no barcode was invented.
+Source-list-derived ingredients remain partial until confirmed.
+
+Future content-provider adapters must preserve source URLs, observed date,
+market and formulation variants; Open Beauty Facts ODbL obligations apply to
+its derived product database. Amazon retail listings may only be consumed
+through a separately permissioned commerce integration, not bulk copied into
+this long-lived canonical product store.
+
+**Release gate:** Rebuild and stage the JSON, confirm a count increase from
+196 without collapse or repeated fraudulent GTINs, search real Nigeria/UAE
+brands and the Minimalist PHA example, run all regression tests, then deploy
+staging only. Do not equate more catalogue records with ingredient safety.

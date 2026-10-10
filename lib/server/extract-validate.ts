@@ -15,7 +15,10 @@ export function sniffImage(bytes: Uint8Array): "jpeg" | "png" | "webp" | null {
 
 /** A real INCI list has separators and recognisable cosmetic tokens. */
 export function looksLikeIngredientList(text: string, entries: string[]): boolean {
-  if (entries.length < 3) return false;
+  // Front packaging often lists 2–4 marketed actives; that is NOT a complete
+  // INCI declaration. Require at least five entries for photo OCR. This is
+  // conservative: unusually short genuine formulas can be entered manually.
+  if (entries.length < 5) return false;
   const hasSeparators = /[,;·•]/.test(text) || entries.length >= 5;
   const hasKnownToken = /\b(aqua|water|glycerin|glycerine|niacinamide|acid|sodium|alcohol|oil|extract|butter|dimethicone)\b/i.test(text);
   return hasSeparators && hasKnownToken;
