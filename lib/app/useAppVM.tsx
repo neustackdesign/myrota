@@ -67,7 +67,7 @@ interface UI {
   screen: Screen; hist: Screen[]; phase: "idle" | "out" | "in0"; dir: number;
   sheet: string | null; sheetIn: boolean; toast: string | null; busy: string | null; pop: boolean;
   source: Source; query: string; barcodeOpen: boolean; unkName: string; unkPlace: UserPlacement; unkFromReview: boolean;
-  pasteText: string; candidateMethod: "paste" | "scan" | "gallery"; selectedCatalogue: CatalogueProduct | null; candidate: ExtractionCandidate | null; revStep: 1 | 2; revName: string; revCat: ProductCategory | null; revUse: ProductFormat | null;
+  pasteText: string; candidateMethod: "paste" | "scan" | "gallery"; selectedCatalogue: CatalogueProduct | null; candidate: ExtractionCandidate | null; revStep: 1 | 2; revName: string; revBrand: string; revCat: ProductCategory | null; revUse: ProductFormat | null;
   corrections: Record<string, string | null>; chipId: string | null; chipDraft: string;
   ctxRet: RetinoidExperience | null; ctxCare: string | null; buildN: number;
   stripSel: number; weekOpen: number; sheetDay: number; prodId: string | null;
@@ -84,7 +84,7 @@ interface Data {
 const INITIAL_UI: UI = {
   screen: "loading", hist: [], phase: "idle", dir: 1, sheet: null, sheetIn: false, toast: null, busy: null, pop: false,
   source: "organic", query: "", barcodeOpen: false, unkName: "", unkPlace: "pm", unkFromReview: false,
-  pasteText: "", candidateMethod: "paste", selectedCatalogue: null, candidate: null, revStep: 1, revName: "", revCat: null, revUse: null, corrections: {}, chipId: null, chipDraft: "",
+  pasteText: "", candidateMethod: "paste", selectedCatalogue: null, candidate: null, revStep: 1, revName: "", revBrand: "", revCat: null, revUse: null, corrections: {}, chipId: null, chipDraft: "",
   ctxRet: null, ctxCare: null, buildN: 0, stripSel: -1, weekOpen: -1, sheetDay: 0, prodId: null,
   mixA: null, mixB: null, mixSlot: "a", mixResult: null, whyOpen: false,
   shareType: "rota", shareFmt: "story", shareNames: false, shareOpts: false,
@@ -430,7 +430,10 @@ export function useAppVM() {
     const candIngredients = (cand?.ingredients ?? []).filter((i) => u.corrections[i.id] !== null).map((i) => (u.corrections[i.id] != null ? { ...i, text: u.corrections[i.id] as string, status: "corrected" as const, activeClass: null } : i));
     const corrected = Object.keys(u.corrections).length > 0;
     const BD = (on: string, t: string) => on === "good" ? { t, bg: "#E3F1EC", ink: "#17605F", bs: "solid", bc: "#1F7F7E" } : on === "mid" ? { t, bg: "#FBFAF6", ink: "#2A1911", bs: "solid", bc: "#2A1911" } : { t, bg: "#FBFAF6", ink: "#5A3824", bs: "dashed", bc: "#845535" };
-    const rvBadges = [BD(u.revName.trim() ? "mid" : "low", u.revName.trim() ? "Name · you typed it" : "Name · not read"), BD(corrected ? "mid" : "low", corrected ? "Ingredients · you corrected, awaiting confirmation" : "Ingredients · partly read")];
+    const rvBadges = [
+      BD(u.revName.trim() ? "mid" : "low", cand?.name ? "Name · read from label, confirm" : "Name · you confirm"),
+      BD(candIngredients.length ? "mid" : "low", candIngredients.length ? "Ingredients · review required" : "Ingredients · not read yet"),
+    ];
     const chipIng = cand?.ingredients.find((i) => i.id === u.chipId);
 
     // ---------- Mix
@@ -539,7 +542,7 @@ export function useAppVM() {
         if (!name) { toast("Give it a name first"); return; }
         let ok: boolean;
         if (u.unkFromReview && cand) {
-          ok = await addDraft({ brand: cand.brand ?? "", name, category: u.revCat ?? "other", format: u.revUse ?? "unknown", identityStatus: "user_confirmed", inciStatus: corrected ? "corrected" : cand.inciStatus, identityKey: null, variant: cand.variant, ingredients: candIngredients, placement: u.unkPlace, source: u.candidateMethod, extractionId: cand.extractionId }, "Added to your shelf");
+          ok = await addDraft({ brand: u.revBrand.trim() || "", name, category: u.revCat ?? "other", format: u.revUse ?? "unknown", identityStatus: "user_confirmed", inciStatus: corrected ? "corrected" : cand.inciStatus, identityKey: null, variant: cand.variant, ingredients: candIngredients, placement: u.unkPlace, source: u.candidateMethod, extractionId: cand.extractionId }, "Added to your shelf");
         } else if (u.selectedCatalogue) {
           const product = u.selectedCatalogue;
           if (shelf.some((p) => p.name.toLowerCase() === product.name.toLowerCase() && p.brand.toLowerCase() === product.brand.toLowerCase())) {
@@ -559,7 +562,7 @@ export function useAppVM() {
             ingredients: product.ingredients.map((ing) => ({ ...ing, status: "read", activeClass: null, flagged: false })),
           }, "Added from product library");
         } else ok = await addDraft(draftForUnknown(name, u.unkPlace, u.revCat ?? "other", u.revUse ?? "unknown"), "Added as unknown");
-        if (ok) closeSheet(() => { set({ query: "", candidate: null, selectedCatalogue: null, corrections: {}, revName: "" }); if (u.unkFromReview) go(u.source === "shelf" ? "shelf" : "add", -1); });
+        if (ok) closeSheet(() => { set({ query: "", candidate: null, selectedCatalogue: null, corrections: {}, revName: "", revBrand: "" }); if (u.unkFromReview) go(u.source === "shelf" ? "shelf" : "add", -1); });
       },
 
       // paste + scan
@@ -574,13 +577,14 @@ export function useAppVM() {
         try {
           const res = await repo.extract({ method: "paste", side: "back", pastedText: text });
           if (!res.ok) { toast(PROBLEM_TEXT[res.problem]); return; }
-          closeSheet(() => go("review", 1, { candidate: res.candidate, revStep: 1, revName: res.candidate.name ?? "", revCat: res.candidate.category, revUse: res.candidate.format && res.candidate.format !== "unknown" ? res.candidate.format : null, corrections: {}, candidateMethod: "paste", pasteText: "" }));
+          closeSheet(() => go("review", 1, { candidate: res.candidate, revStep: 1, revName: res.candidate.name ?? "", revBrand: res.candidate.brand ?? "", revBrand: res.candidate.brand ?? "", revCat: res.candidate.category, revUse: res.candidate.format && res.candidate.format !== "unknown" ? res.candidate.format : null, corrections: {}, candidateMethod: "paste", pasteText: "" }));
         } catch (e) { fail(e); } finally { set({ busy: null }); }
       },
       onPhoto: async (event: any) => {
         const input = event.currentTarget as HTMLInputElement;
         const image = input.files?.[0];
         const method: "scan" | "gallery" = input.dataset.method === "scan" ? "scan" : "gallery";
+        const enrichIngredients = input.dataset.enrich === "ingredients";
         input.value = "";
         if (!image || busy) return;
         if (!photoEnabled) { toast("Photo reading is not available yet. Paste the ingredients instead."); return; }
@@ -593,6 +597,23 @@ export function useAppVM() {
           const prepared = await fitImageForUpload(image);
           const res = await repo.extract({ method, side: "back" }, prepared);
           if (!res.ok) { toast(PROBLEM_TEXT[res.problem]); return; }
+          if (enrichIngredients) {
+            if (!u.candidate || res.candidate.ingredients.length === 0) {
+              toast("No ingredient list found. Photograph the full INCI list on the back."); return;
+            }
+            // Preserve the user's already-reviewed FRONT identity. Never replace
+            // it with a model guess or manufacturer listing while enriching INCI.
+            set({
+              candidate: {
+                ...u.candidate, extractionId: res.candidate.extractionId,
+                inciStatus: "partial", ingredients: res.candidate.ingredients,
+                provider: res.candidate.provider,
+              },
+              revStep: 2, corrections: {}, candidateMethod: method,
+            });
+            toast("Ingredient list read. Review it before adding to your shelf.");
+            return;
+          }
           go("review", 1, {
             candidate: res.candidate, revStep: 1, revName: res.candidate.name ?? "",
             revCat: res.candidate.category,
@@ -614,7 +635,14 @@ export function useAppVM() {
 
       // review (pasted INCI)
       revStepLabel: u.revStep === 1 ? "Step 1 of 2" : "Step 2 of 2", rs1: u.revStep === 1, rs2: u.revStep === 2, rsFlag: false,
-      rv: { icon: CATEGORY_ICON[u.revCat ?? "other"], name: u.revName || "Name not read yet", brand: cand?.brand || "Brand not read", askFront: true, flags: [], chips: [] },
+      rv: { icon: CATEGORY_ICON[u.revCat ?? "other"], name: u.revName || "Name not read yet", brand: u.revBrand || "Brand not read", askFront: true, flags: [], chips: [] },
+      reviewIdentityOnly: !!cand && cand.ingredients.length === 0 && cand.inciStatus === "unknown",
+      reviewInstruction: cand?.name
+        ? "We recognised some words on the front. Check and correct the brand and product name before saving."
+        : "We read the ingredients, not the product name. Enter the brand and product name from the package.",
+      revBrand: u.revBrand, onRevBrand: (e: any) => set({ revBrand: e.target.value.slice(0, 120) }),
+      reviewEnrich: !!cand && cand.ingredients.length === 0 && cand.inciStatus === "unknown",
+      photoProcessing: busy === "extract",
       rvTitle: u.revName.trim() || "Name not read yet", rvProv: rvBadges.map((b) => b.t).join(" · "),
       revName: u.revName, onRevName: (e: any) => set({ revName: e.target.value.slice(0, 180) }),
 
@@ -624,7 +652,7 @@ export function useAppVM() {
       retake: () => { if (u.candidateMethod === "paste") openSheet("paste"); else go("add", -1); },
       actRows: candIngredients.slice(0, 6).map((i) => ({ t: i.text + (i.status === "corrected" ? " · edited" : ""), kind: "read", edit: () => openSheet("chip", { chipId: i.id, chipDraft: i.text }) })),
       unreadOn: candIngredients.length > 6, unreadLine: `+ ${candIngredients.length - 6} more ingredient${candIngredients.length - 6 === 1 ? "" : "s"} read`, unreadFix: () => openSheet("notes"),
-      reviewCta: "Add to shelf",
+      reviewCta: "Continue to shelf",
       reviewAdd: () => openSheet("unknown", { unkName: u.revName.trim(), unkPlace: u.revCat === "sunscreen" ? "am" : "pm", unkFromReview: true }),
       flagTag: "", flagTitle: "", flagBody: "", flagSrc: "", flagNext: () => set({ revStep: 2 }),
       chipTitle: chipIng ? `Correct “${chipIng.text}”` : "Correct an ingredient", chipDraft: u.chipDraft, onChipDraft: (e: any) => set({ chipDraft: e.target.value.slice(0, 200) }),
