@@ -66,9 +66,9 @@ export function contextNeeds(products: ShelfProduct[]) {
 
 export const PROBLEM_TEXT: Record<ExtractProblem, string> = {
   glare: "Glare on the label. Tilt the bottle away from the light and try again.",
-  blur: "The photo is blurred. Hold still a moment, then try again.",
+  blur: "We couldn't read the ingredient text clearly. Try a closer, well-lit picture of the full ingredient list.",
   no_text: "We couldn't find any text. Fill the frame with the ingredient list.",
-  not_ingredient_list: "That doesn't look like an ingredient list. Try the back label.",
+  not_ingredient_list: "No full ingredient list found in this photo. If it shows the front label, try the back—or search the brand and product name below.",
   too_large: "That image is too large. Try a closer photo.",
   unsupported_image: "We can't read that file type. Try a JPG or PNG photo.",
 };
