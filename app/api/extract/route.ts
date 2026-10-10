@@ -3,6 +3,8 @@ import { capabilitiesFor } from "@/lib/server/capabilities";
 import { transcribeLabel, DEFAULT_VISION_MODEL, DEFAULT_VISION_FORMAT } from "@/lib/server/extract-vision";
 import { splitInciList, toInciIngredients } from "@/lib/server/inci";
 import { sniffImage, looksLikeIngredientList } from "@/lib/server/extract-validate";
+import { enforceExtractQuota } from "@/lib/server/extract-quota";
+import { currentUser } from "@/lib/server/session";
 import type { ExtractResponse, ExtractProblem } from "@/lib/api/contract";
 
 /**
@@ -43,6 +45,18 @@ async function handleImage(request: Request): Promise<Response> {
   const bytes = new Uint8Array(await image.arrayBuffer());
   const kind = sniffImage(bytes);
   if (!kind) return problem("unsupported_image");
+
+  // Abuse + cost protection BEFORE invoking paid Workers AI. Per-IP + per-user
+  // (when signed in) + a global daily ceiling. A capped request costs nothing.
+  const ip = request.headers.get("cf-connecting-ip");
+  const user = await currentUser(request).catch(() => null);
+  const quota = await enforceExtractQuota(e.DB, ip, user?.id ?? null, e);
+  if (!quota.allowed) {
+    return Response.json(
+      { error: "Photo reading is busy right now. Paste the ingredients or add by name, and try a photo again later." },
+      { status: 429, headers: { "cache-control": "no-store", "retry-after": "3600" } },
+    );
+  }
 
   const model = e.MYROTA_VISION_MODEL || DEFAULT_VISION_MODEL;
   const fmtRaw = e.MYROTA_VISION_FORMAT || DEFAULT_VISION_FORMAT;

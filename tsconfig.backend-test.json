@@ -19,6 +19,7 @@
     "lib/server/catalogue-store.ts",
     "lib/server/extract-validate.ts",
     "lib/server/draft-rules.ts",
+    "lib/server/extract-quota.ts",
     "lib/domain/types.ts",
     "tests/backend/**/*.ts"
   ]

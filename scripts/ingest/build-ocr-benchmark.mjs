@@ -25,16 +25,21 @@ const BRANDS = ["the-ordinary", "cerave", "la-roche-posay", "cetaphil", "neutrog
 
 async function brand(b) {
   const url = `https://world.openbeautyfacts.org/api/v2/search?brands_tags=${b}` +
-    `&fields=code,product_name,brands,ingredients_text&page_size=60`;
+    `&fields=code,product_name,brands&page_size=60`;
   const r = await fetch(url, { headers: { "User-Agent": UA } });
   return r.ok ? (await r.json()).products || [] : [];
 }
 
-// The search endpoint omits image_ingredients_url; the product endpoint has it.
-async function ingredientImage(code) {
-  const r = await fetch(`https://world.openbeautyfacts.org/api/v2/product/${code}?fields=image_ingredients_url`, { headers: { "User-Agent": UA } });
+// Benchmark must be LANGUAGE-MATCHED: use the ENGLISH ingredient photo together
+// with the ENGLISH declared text, so recall measures OCR — not a translation gap.
+// Returns { image, text } only when an English ingredient panel + English INCI exist.
+async function englishLabel(code) {
+  const r = await fetch(`https://world.openbeautyfacts.org/api/v2/product/${code}?fields=selected_images,ingredients_text_en`, { headers: { "User-Agent": UA } });
   if (!r.ok) return null;
-  return (await r.json())?.product?.image_ingredients_url || null;
+  const p = (await r.json())?.product || {};
+  const image = p.selected_images?.ingredients?.display?.en || null;
+  const text = (p.ingredients_text_en || "").trim();
+  return image && text.length >= 25 ? { image, text } : null;
 }
 
 const seen = new Set();
@@ -46,15 +51,14 @@ for (const b of BRANDS) {
   for (const p of ps) {
     const code = String(p.code || "");
     const name = String(p.product_name || "").trim();
-    const inci = String(p.ingredients_text || "").trim();
-    // Need a real barcode, name, and a declared INCI (ground truth) first.
-    if (!/^\d{8,14}$/.test(code) || name.length < 3 || inci.length < 25 || seen.has(code)) continue;
-    const groundTruth = inci.replace(/^\s*ingredients?\s*[:：]\s*/i, "").split(/[,;\n·•]+/).map((x) => x.trim()).filter((x) => x.length >= 2);
-    if (groundTruth.length < 5) continue;
+    if (!/^\d{8,14}$/.test(code) || name.length < 3 || seen.has(code)) continue;
     seen.add(code);
-    // Then confirm a real ingredient-label photograph exists.
-    const img = await ingredientImage(code);
-    if (!img) continue;
+    // Require a language-matched ENGLISH ingredient photo + English declared text.
+    const en = await englishLabel(code);
+    if (!en) continue;
+    const img = en.image;
+    const groundTruth = en.text.replace(/^\s*ingredients?\s*[:：]\s*/i, "").split(/[,;\n·•]+/).map((x) => x.trim()).filter((x) => x.length >= 2);
+    if (groundTruth.length < 5) continue;
     items.push({
       barcode: code,
       brand: (p.brands || b).split(",")[0].trim(),
