@@ -617,11 +617,11 @@ export function useAppVM() {
       rv: { icon: CATEGORY_ICON[u.revCat ?? "other"], name: u.revName || "Name not read yet", brand: cand?.brand || "Brand not read", askFront: true, flags: [], chips: [] },
       rvTitle: u.revName.trim() || "Name not read yet", rvProv: rvBadges.map((b) => b.t).join(" · "),
       revName: u.revName, onRevName: (e: any) => set({ revName: e.target.value.slice(0, 180) }),
-      snapFrontLabel: "Photo reading is coming soon", shootFront: () => toast("Type the name for now. Photo reading isn't switched on yet."),
+
       rvCats6: CATS.map(([val, t]) => { const s0 = sel(u.revCat === val); return { t, ...s0, bd: s0.bc === "#2A1911" ? "2px solid #2A1911" : "1.5px solid #C99A72", pick: () => set({ revCat: val }) }; }),
       rvUse2: ([["rinse_off", "Rinse-off"], ["leave_on", "Leave-on"]] as const).map(([val, t]) => ({ t, ...seg(u.revUse === val), pick: () => set({ revUse: val }) })),
       revNext: () => { if (!u.revName.trim()) { toast("Type the product name first"); return; } if (!u.revCat) { toast("Pick what type of product it is"); return; } set({ revStep: 2 }); },
-      retake: () => { openSheet("paste"); },
+      retake: () => { if (u.candidateMethod === "paste") openSheet("paste"); else go("add", -1); },
       actRows: candIngredients.slice(0, 6).map((i) => ({ t: i.text + (i.status === "corrected" ? " · edited" : ""), kind: "read", edit: () => openSheet("chip", { chipId: i.id, chipDraft: i.text }) })),
       unreadOn: candIngredients.length > 6, unreadLine: `+ ${candIngredients.length - 6} more ingredient${candIngredients.length - 6 === 1 ? "" : "s"} read`, unreadFix: () => openSheet("notes"),
       reviewCta: "Add to shelf",
