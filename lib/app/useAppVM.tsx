@@ -5,6 +5,7 @@ import type { ClientConfigResponse, ExtractionCandidate, MeResponse, MixResponse
 import { ApiError, apiErrorMessage } from "../api/repository";
 import { contextNeeds, draftForUnknown, draftFromCatalogue, PROBLEM_TEXT } from "../client/drafts";
 import { canPromptInstall, detectPlatform, isStandalone, promptInstall } from "../client/pwa";
+import { fitImageForUpload } from "../client/image";
 import { newIdempotencyKey, useRepository } from "../client/runtime";
 import { countBucket, track } from "../analytics";
 import { isAnalysable } from "../domain/evidence";
@@ -584,10 +585,13 @@ export function useAppVM() {
         if (!image || busy) return;
         if (!photoEnabled) { toast("Photo reading is not available yet. Paste the ingredients instead."); return; }
         if (!["image/jpeg", "image/png", "image/webp"].includes(image.type)) { toast("Use a JPG, PNG or WebP photo of the label."); return; }
-        if (image.size > 8 * 1024 * 1024 || image.size === 0) { toast("Use a photo smaller than 8 MB."); return; }
+        if (image.size === 0) { toast("That photo looks empty. Try taking it again."); return; }
+        if (image.size > 20 * 1024 * 1024) { toast("That photo is very large. Try a normal camera photo."); return; }
         set({ busy: "extract" });
         try {
-          const res = await repo.extract({ method, side: "back" }, image);
+          // Compress large phone photos to fit the server's 6 MB limit, keeping text legible.
+          const prepared = await fitImageForUpload(image);
+          const res = await repo.extract({ method, side: "back" }, prepared);
           if (!res.ok) { toast(PROBLEM_TEXT[res.problem]); return; }
           go("review", 1, {
             candidate: res.candidate, revStep: 1, revName: res.candidate.name ?? "",
