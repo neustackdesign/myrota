@@ -25,6 +25,7 @@ const OBSERVED_AT = process.env.OBSERVED_AT || new Date().toISOString().slice(0,
 const TOTAL_LIMIT = Number(process.argv.includes("--limit") ? process.argv[process.argv.indexOf("--limit") + 1] : 800);
 const PER_BRAND = Number(process.argv.includes("--per-brand") ? process.argv[process.argv.indexOf("--per-brand") + 1] : 30);
 const REQUEST_DELAY_MS = 6500; // OBF search quota: max ~10 requests/min per IP.
+const MIN_RECORDS = Number(process.argv.includes("--min") ? process.argv[process.argv.indexOf("--min") + 1] : 196); // never replace seed with a smaller failed crawl
 
 // Availability basis documented in docs/CATALOGUE_PROVENANCE.md.
 const BRANDS = [
@@ -98,6 +99,17 @@ async function fetchBrand(brand) {
   return json.products || [];
 }
 
+// Strict GTIN checksum to avoid indexing spurious product identifiers.
+function validGtin(code) {
+  if (!/^(?:\d{8}|\d{12}|\d{13}|\d{14})$/.test(code)) return false;
+  const digits = [...code].map(Number);
+  let sum = 0;
+  for (let i = digits.length - 2, weight = 3; i >= 0; i--, weight = weight === 3 ? 1 : 3) {
+    sum += digits[i] * weight;
+  }
+  return (10 - (sum % 10)) % 10 === digits.at(-1);
+}
+
 const seen = new Set();
 const records = [];
 let searches = 0;
@@ -112,7 +124,7 @@ for (const brand of BRANDS) {
     const name = String(p.product_name || "").trim();
     const inci = String(p.ingredients_text || "").trim();
     // Skip incomplete/junk: need a plausible barcode, a real name, and a real INCI list.
-    if (!/^\d{8,14}$/.test(code) || name.length < 3 || inci.length < 25) continue;
+    if (!validGtin(code) || name.length < 3 || inci.length < 25) continue;
     if (seen.has(code)) continue;
     const ingredientStrings = splitInci(inci);
     // Quality gate: a usable, well-separated list (drops single-blob/garbled entries).
@@ -151,6 +163,7 @@ const out = {
   count: records.length,
   products: records,
 };
+if (records.length < MIN_RECORDS) throw new Error(`Refusing to overwrite current catalogue with only ${records.length} records (minimum ${MIN_RECORDS}). Check OBF throttling and brand coverage.`);
 const dest = join(ROOT, "lib", "server", "catalogue-data.json");
 writeFileSync(dest, JSON.stringify(out, null, 2));
 console.error(`\nwrote ${records.length} products → ${dest}`);
