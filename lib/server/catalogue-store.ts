@@ -67,7 +67,8 @@ const INDEX: IndexedRecord[] = SOURCE_RECORDS.map((r) => ({
  * Accept only GTIN-8, UPC-A (12), EAN-13, or GTIN-14 with a valid GS1 check
  * digit. Never fuzzy-match numeric identifiers: wrong SKU must return no hit.
  */
-export function canonicalGtin(raw: string): string | null {
+export function canonicalGtin(raw: string | null | undefined): string | null {
+  if (!raw) return null;
   const code = raw.trim();
   if (!/^(?:\d{8}|\d{12}|\d{13}|\d{14})$/.test(code)) return null;
   const digits = Array.from(code, Number);
