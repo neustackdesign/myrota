@@ -57,14 +57,14 @@ export function imageBase64(bytes: Uint8Array): string {
   }
   return btoa(parts.join(""));
 }
-function buildInput(format: VisionFormat, bytes: Uint8Array, kind: ImageKind): Record<string, unknown> {
+function buildInput(format: VisionFormat, bytes: Uint8Array, kind: ImageKind, prompt = TRANSCRIBE_PROMPT): Record<string, unknown> {
 
   if (format === "simple") {
-    return { image: Array.from(bytes), prompt: TRANSCRIBE_PROMPT, max_tokens: 1024, temperature: 0 };
+    return { image: Array.from(bytes), prompt, max_tokens: 1024, temperature: 0 };
   }
   if (format === "messages-array") {
     // instruct vision models that take a messages array + raw image bytes
-    return { messages: [{ role: "user", content: TRANSCRIBE_PROMPT }], image: Array.from(bytes), max_tokens: 1024, temperature: 0 };
+    return { messages: [{ role: "user", content: prompt }], image: Array.from(bytes), max_tokens: 1024, temperature: 0 };
   }
   // "messages": chat content parts with a base64 data URI
   const b64 = imageBase64(bytes);
@@ -72,7 +72,7 @@ function buildInput(format: VisionFormat, bytes: Uint8Array, kind: ImageKind): R
     messages: [{
       role: "user",
       content: [
-        { type: "text", text: TRANSCRIBE_PROMPT },
+        { type: "text", text: prompt },
         { type: "image_url", image_url: { url: `data:image/${kind};base64,${b64}` } },
       ],
     }],
@@ -93,4 +93,31 @@ export async function transcribeLabel(
   let rawSample = "";
   try { rawSample = (typeof out === "string" ? out : JSON.stringify(out)).slice(0, 300); } catch { /* ignore */ }
   return { text: textFrom(out).trim(), model, format, usage, rawSample };
+}
+
+/**
+ * Front-label identity is intentionally separate from INCI transcription.
+ * Never return or infer the full ingredient list from a marketing claim.
+ * This uses a second metered Workers AI call only when the existing INCI
+ * transcription is unavailable, or a user explicitly chooses a front photo.
+ */
+const FRONT_PROMPT =
+  'Transcribe ONLY words actually visible on the FRONT of this cosmetic package. ' +
+  'Return exactly one JSON object with keys visible_text (verbatim visible words), ' +
+  'brand, name, category, size. Values must be strings or null. ' +
+  'Name the exact visible product, not an ingredient or a guessed retail listing. ' +
+  'Category must be one of cleanser, toner, serum, treatment, moisturiser, sunscreen, other ' +
+  'only when literally printed; otherwise null. Size must be text printed on the label. ' +
+  'No INCI list, claimed formulation, ingredient completion, barcode, medical advice or guesses. ' +
+  'If no front-label product name is visible use null for name. Output valid JSON only.';
+
+export async function transcribeFrontLabel(
+  ai: WorkersAi,
+  bytes: Uint8Array,
+  model = DEFAULT_VISION_MODEL,
+  format: VisionFormat = "messages",
+  kind: ImageKind = "jpeg",
+): Promise<string> {
+  const out = await ai.run(model, buildInput(format, bytes, kind, FRONT_PROMPT));
+  return textFrom(out).trim();
 }
