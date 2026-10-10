@@ -80,7 +80,10 @@ async function handleImage(request: Request): Promise<Response> {
     model, format, kind, bytes: bytes.length, side, latencyMs: Date.now() - started, usage,
   }));
 
-  if (!text || /^unreadable$/i.test(text)) return problem(side === "front" ? "no_text" : "blur");
+  // UNREADABLE means the instruction-only INCI prompt found no readable list.
+  // It does NOT prove the camera image is blurred: a perfectly sharp FRONT
+  // product label legitimately has no full INCI list. Keep the recovery honest.
+  if (!text || /^unreadable$/i.test(text)) return problem("not_ingredient_list");
 
   const entries = splitInciList(text);
   if (!looksLikeIngredientList(text, entries)) return problem("not_ingredient_list");
