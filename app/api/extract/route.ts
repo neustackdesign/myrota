@@ -29,6 +29,9 @@ async function handleImage(request: Request): Promise<Response> {
       { status: 503, headers: { "cache-control": "no-store" } },
     );
   }
+  // Reject declared oversize bodies before multipart parsing allocates buffers.
+  const length = Number(request.headers.get("content-length") ?? 0);
+  if (Number.isFinite(length) && length > MAX_IMAGE_BYTES + 128_000) return problem("too_large");
   let form: FormData;
   try { form = await request.formData(); } catch { return problem("unsupported_image"); }
   const image = form.get("image");
@@ -48,7 +51,7 @@ async function handleImage(request: Request): Promise<Response> {
   let text = "";
   let usage: unknown = null;
   try {
-    const result = await transcribeLabel(e.AI, bytes, model, format);
+    const result = await transcribeLabel(e.AI, bytes, model, format, kind);
     text = result.text;
     usage = result.usage;
   } catch {
