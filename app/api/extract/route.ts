@@ -1,8 +1,9 @@
 import { bindings } from "@/lib/server/cloudflare-env";
 import { capabilitiesFor } from "@/lib/server/capabilities";
-import { transcribeLabel, DEFAULT_VISION_MODEL, DEFAULT_VISION_FORMAT } from "@/lib/server/extract-vision";
+import { transcribeLabel, transcribeFrontLabel, DEFAULT_VISION_MODEL, DEFAULT_VISION_FORMAT } from "@/lib/server/extract-vision";
 import { splitInciList, toInciIngredients } from "@/lib/server/inci";
 import { sniffImage, looksLikeIngredientList } from "@/lib/server/extract-validate";
+import { parseFrontLabel } from "@/lib/server/extract-front";
 import { enforceExtractQuota } from "@/lib/server/extract-quota";
 import { currentUser } from "@/lib/server/session";
 import type { ExtractResponse, ExtractProblem } from "@/lib/api/contract";
@@ -12,8 +13,8 @@ import type { ExtractResponse, ExtractProblem } from "@/lib/api/contract";
  * never returns a safety verdict, never persists or logs the image.
  *
  *  - multipart/form-data: image + method=scan|gallery + side=back|front → Workers AI
- *    vision transcription (gated on capability). Identity is NEVER inferred from
- *    pixels; only the verbatim INCI list is read, as `partial`.
+ *    two distinct tasks: INCI transcription where visible; otherwise a front-label
+ *    product-identity candidate with partial evidence. Neither guesses an SKU.
  *  - application/json: pasted INCI (always available).
  */
 
@@ -64,31 +65,65 @@ async function handleImage(request: Request): Promise<Response> {
   const started = Date.now();
   let text = "";
   let usage: unknown = null;
+  let entries: string[] = [];
+  let aiCalls = 0;
+  let frontRaw = "";
+
   try {
-    const result = await transcribeLabel(e.AI, bytes, model, format, kind);
-    text = result.text;
-    usage = result.usage;
+    if (side !== "front") {
+      const result = await transcribeLabel(e.AI, bytes, model, format, kind);
+      aiCalls++;
+      text = result.text;
+      usage = result.usage;
+      if (text && !/^unreadable$/i.test(text)) {
+        const possible = splitInciList(text);
+        if (looksLikeIngredientList(text, possible)) entries = possible;
+      }
+    }
+    // A clear product front has no INCI list. Use a *bounded, second* task
+    // rather than disguising the absence as camera blur. The front extraction
+    // is also available explicitly without first paying for INCI OCR.
+    if (!entries.length) {
+      frontRaw = await transcribeFrontLabel(e.AI, bytes, model, format, kind);
+      aiCalls++;
+    }
   } catch {
-    // Provider error/timeout. Never leak detail; never persist the image.
     return Response.json(
-      { error: "Couldn't read the photo just now. Try again, paste the ingredients, or add by name." },
+      { error: "Couldn't read the photo just now. Try again, paste ingredients, or add by name." },
       { status: 503, headers: { "cache-control": "no-store" } },
     );
   }
-  // Cost/latency metric for the benchmark — metadata only, never image content.
+  // Do not log raw photos, label text or model output. A fallback can incur
+  // two inference calls; surface this in cost accounting, not as free capacity.
   console.log("[myrota.extract.metric]", JSON.stringify({
-    model, format, kind, bytes: bytes.length, side, latencyMs: Date.now() - started, usage,
+    model, format, kind, side, bytes: bytes.length, aiCalls,
+    latencyMs: Date.now() - started, usage,
+    resultType: entries.length ? "inci" : "front_or_unknown",
   }));
 
-  // UNREADABLE means the instruction-only INCI prompt found no readable list.
-  // It does NOT prove the camera image is blurred: a perfectly sharp FRONT
-  // product label legitimately has no full INCI list. Keep the recovery honest.
-  if (!text || /^unreadable$/i.test(text)) return problem("not_ingredient_list");
+  if (!entries.length) {
+    const front = parseFrontLabel(frontRaw);
+    if (!front) return problem("not_ingredient_list");
+    const candidate = {
+      extractionId: crypto.randomUUID(),
+      brand: front.brand,
+      name: front.name,
+      category: front.category,
+      format: null,
+      identityStatus: "partial" as const,
+      inciStatus: "unknown" as const,
+      identityKey: null,
+      variant: front.variant,
+      ingredients: [],
+      flags: [],
+      provider: `workers_ai_vision:${model}:front_label_unverified`,
+    };
+    return Response.json({ ok: true, candidate } satisfies ExtractResponse, {
+      headers: { "cache-control": "no-store" },
+    });
+  }
 
-  const entries = splitInciList(text);
-  if (!looksLikeIngredientList(text, entries)) return problem("not_ingredient_list");
-
-  // Identity is NEVER inferred from pixels. Only the verbatim INCI is read, as partial.
+  // INCI transcription does not establish exact product identity.
   const ingredients = toInciIngredients(entries, "scan");
   const candidate = {
     extractionId: crypto.randomUUID(),
