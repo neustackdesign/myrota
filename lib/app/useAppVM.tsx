@@ -577,7 +577,7 @@ export function useAppVM() {
         try {
           const res = await repo.extract({ method: "paste", side: "back", pastedText: text });
           if (!res.ok) { toast(PROBLEM_TEXT[res.problem]); return; }
-          closeSheet(() => go("review", 1, { candidate: res.candidate, revStep: 1, revName: res.candidate.name ?? "", revBrand: res.candidate.brand ?? "", revBrand: res.candidate.brand ?? "", revCat: res.candidate.category, revUse: res.candidate.format && res.candidate.format !== "unknown" ? res.candidate.format : null, corrections: {}, candidateMethod: "paste", pasteText: "" }));
+          closeSheet(() => go("review", 1, { candidate: res.candidate, revStep: 1, revName: res.candidate.name ?? "", revBrand: res.candidate.brand ?? "", revCat: res.candidate.category, revUse: res.candidate.format && res.candidate.format !== "unknown" ? res.candidate.format : null, corrections: {}, candidateMethod: "paste", pasteText: "" }));
         } catch (e) { fail(e); } finally { set({ busy: null }); }
       },
       onPhoto: async (event: any) => {
@@ -615,7 +615,7 @@ export function useAppVM() {
             return;
           }
           go("review", 1, {
-            candidate: res.candidate, revStep: 1, revName: res.candidate.name ?? "",
+            candidate: res.candidate, revStep: 1, revName: res.candidate.name ?? "", revBrand: res.candidate.brand ?? "",
             revCat: res.candidate.category,
             revUse: res.candidate.format && res.candidate.format !== "unknown" ? res.candidate.format : null,
             corrections: {}, selectedCatalogue: null, candidateMethod: method,
