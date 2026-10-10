@@ -22,14 +22,19 @@ import { dirname, join } from "node:path";
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const UA = "myrota-pilot/0.1 (skincare catalogue starter; contact lionproductteam@gmail.com)";
 const OBSERVED_AT = process.env.OBSERVED_AT || new Date().toISOString().slice(0, 10);
-const TOTAL_LIMIT = Number(process.argv.includes("--limit") ? process.argv[process.argv.indexOf("--limit") + 1] : 200);
-const PER_BRAND = Number(process.argv.includes("--per-brand") ? process.argv[process.argv.indexOf("--per-brand") + 1] : 16);
+const TOTAL_LIMIT = Number(process.argv.includes("--limit") ? process.argv[process.argv.indexOf("--limit") + 1] : 800);
+const PER_BRAND = Number(process.argv.includes("--per-brand") ? process.argv[process.argv.indexOf("--per-brand") + 1] : 30);
+const REQUEST_DELAY_MS = 6500; // OBF search quota: max ~10 requests/min per IP.
 
 // Availability basis documented in docs/CATALOGUE_PROVENANCE.md.
 const BRANDS = [
   "the-ordinary", "cerave", "la-roche-posay", "cetaphil", "neutrogena", "nivea",
   "simple", "garnier", "bioderma", "eucerin", "the-inkey-list", "cosrx",
   "paula-s-choice", "the-body-shop", "nuxe", "avene",
+  "minimalist", "beauty-of-joseon", "isntree", "skin1004", "anua", "laneige",
+  "cos-de-baha", "good-molecules", "aveeno", "palmers", "vaseline", "dove",
+  "olay", "vichy", "uriage", "svr", "hada-labo", "klairs", "purito",
+  "pyunkang-yul", "sheamoisture", "clinique", "kiehls", "loreal-paris",
 ];
 
 // Clean display name per queried brand slug — overrides OBF's noisy `brands` field.
@@ -39,6 +44,15 @@ const BRAND_DISPLAY = {
   "garnier": "Garnier", "bioderma": "Bioderma", "eucerin": "Eucerin", "the-inkey-list": "The Inkey List",
   "cosrx": "COSRX", "paula-s-choice": "Paula's Choice", "the-body-shop": "The Body Shop",
   "nuxe": "Nuxe", "avene": "Avène",
+  "minimalist": "Minimalist", "beauty-of-joseon": "Beauty of Joseon",
+  "isntree": "Isntree", "skin1004": "SKIN1004", "anua": "Anua",
+  "laneige": "Laneige", "cos-de-baha": "COS DE BAHA", "good-molecules": "Good Molecules",
+  "aveeno": "Aveeno", "palmers": "Palmer’s", "vaseline": "Vaseline",
+  "dove": "Dove", "olay": "Olay", "vichy": "Vichy", "uriage": "Uriage",
+  "svr": "SVR", "hada-labo": "Hada Labo", "klairs": "Klairs",
+  "purito": "Purito", "pyunkang-yul": "Pyunkang Yul",
+  "sheamoisture": "SheaMoisture", "clinique": "Clinique",
+  "kiehls": "Kiehl’s", "loreal-paris": "L’Oréal Paris",
 };
 
 const CATEGORY_RULES = [
@@ -63,7 +77,7 @@ function splitInci(text) {
     .replace(/^\s*ingredients?\s*[:：]\s*/i, "")
     .replace(/\r\n?/g, "\n")
     // OBF entries separate with comma/semicolon/newline, sometimes " / " or ". ".
-    .split(/\s*[,;\n·•]\s*|\s+\/\s+|\.\s+(?=[A-ZÀ-Ÿ])/)
+    .split(/(?<!\d),\s*|,\s*(?!\d)|\s*[;\n·•]\s*|\s+\/\s+|\.\s+(?=[A-ZÀ-Ÿ])/)
     .map((x) => x.trim().replace(/\s+/g, " ").replace(/\.$/, ""))
     .filter((x) => x.length >= 2 && x.length <= 60 && /[a-zA-Z]/.test(x))
     .slice(0, 60);
@@ -72,7 +86,13 @@ function splitInci(text) {
 async function fetchBrand(brand) {
   const url = `https://world.openbeautyfacts.org/api/v2/search?brands_tags=${brand}` +
     `&fields=code,product_name,brands,ingredients_text,quantity&page_size=100`;
-  const res = await fetch(url, { headers: { "User-Agent": UA } });
+  let res = await fetch(url, { headers: { "User-Agent": UA } });
+  if (res.status === 429) {
+    const delay = Math.max(6500, Math.min(60000, Number(res.headers.get("retry-after") || 12) * 1000));
+    console.error(`  429 search throttled; sleeping ${delay / 1000}s`);
+    await new Promise((resolve) => setTimeout(resolve, delay));
+    res = await fetch(url, { headers: { "User-Agent": UA } });
+  }
   if (!res.ok) { console.error(`  ${brand}: HTTP ${res.status}`); return []; }
   const json = await res.json();
   return json.products || [];
@@ -80,7 +100,9 @@ async function fetchBrand(brand) {
 
 const seen = new Set();
 const records = [];
+let searches = 0;
 for (const brand of BRANDS) {
+  if (searches++) await new Promise((resolve) => setTimeout(resolve, REQUEST_DELAY_MS));
   process.stderr.write(`fetching ${brand}… `);
   let products = [];
   try { products = await fetchBrand(brand); } catch (e) { console.error("err", e.message); }
