@@ -1,6 +1,6 @@
 import { bindings } from "@/lib/server/cloudflare-env";
 import { capabilitiesFor } from "@/lib/server/capabilities";
-import { transcribeLabel, DEFAULT_VISION_MODEL } from "@/lib/server/extract-vision";
+import { transcribeLabel, DEFAULT_VISION_MODEL, DEFAULT_VISION_FORMAT } from "@/lib/server/extract-vision";
 import { splitInciList, toInciIngredients } from "@/lib/server/inci";
 import { sniffImage, looksLikeIngredientList } from "@/lib/server/extract-validate";
 import type { ExtractResponse, ExtractProblem } from "@/lib/api/contract";
@@ -42,11 +42,13 @@ async function handleImage(request: Request): Promise<Response> {
   if (!kind) return problem("unsupported_image");
 
   const model = e.MYROTA_VISION_MODEL || DEFAULT_VISION_MODEL;
+  const fmtRaw = e.MYROTA_VISION_FORMAT || DEFAULT_VISION_FORMAT;
+  const format = (["simple", "messages", "messages-array"].includes(fmtRaw) ? fmtRaw : "messages") as "simple" | "messages" | "messages-array";
   const started = Date.now();
   let text = "";
   let usage: unknown = null;
   try {
-    const result = await transcribeLabel(e.AI, bytes, model);
+    const result = await transcribeLabel(e.AI, bytes, model, format);
     text = result.text;
     usage = result.usage;
   } catch {
@@ -56,9 +58,9 @@ async function handleImage(request: Request): Promise<Response> {
       { status: 503, headers: { "cache-control": "no-store" } },
     );
   }
-  // Cost/latency metric for the 30-label benchmark — metadata only, never image content.
+  // Cost/latency metric for the benchmark — metadata only, never image content.
   console.log("[myrota.extract.metric]", JSON.stringify({
-    model, kind, bytes: bytes.length, side, latencyMs: Date.now() - started, usage,
+    model, format, kind, bytes: bytes.length, side, latencyMs: Date.now() - started, usage,
   }));
 
   if (!text || /^unreadable$/i.test(text)) return problem(side === "front" ? "no_text" : "blur");

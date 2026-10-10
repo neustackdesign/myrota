@@ -13,6 +13,8 @@ export interface MyrotaBindings {
   PHOTO_READING_ENABLED?: string;
   /** Override the Workers AI vision model id without redeploying code. */
   MYROTA_VISION_MODEL?: string;
+  /** Override the vision input format: simple | messages | messages-array. */
+  MYROTA_VISION_FORMAT?: string;
   BETTER_AUTH_SECRET?: string;
   TURNSTILE_SECRET_KEY?: string;
   TURNSTILE_SITE_KEY?: string;
