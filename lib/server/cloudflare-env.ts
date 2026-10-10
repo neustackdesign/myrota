@@ -15,6 +15,10 @@ export interface MyrotaBindings {
   MYROTA_VISION_MODEL?: string;
   /** Override the vision input format: simple | messages | messages-array. */
   MYROTA_VISION_FORMAT?: string;
+  /** Optional overrides for /api/extract daily quotas (abuse + cost protection). */
+  EXTRACT_IP_CAP?: string;
+  EXTRACT_USER_CAP?: string;
+  EXTRACT_GLOBAL_CAP?: string;
   BETTER_AUTH_SECRET?: string;
   TURNSTILE_SECRET_KEY?: string;
   TURNSTILE_SITE_KEY?: string;

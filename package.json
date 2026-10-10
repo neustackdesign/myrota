@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "test:benchmark": "node --test tests/ingestion-benchmark.test.mjs",
+    "test:benchmark": "node --test tests/ingestion-benchmark.test.mjs tests/ocr-mobile-image.test.mjs",
     "db:generate": "drizzle-kit generate",
     "db:check": "drizzle-kit check",
     "gate1:vinext:check": "vinext check",

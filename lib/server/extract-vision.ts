@@ -47,23 +47,33 @@ function textFrom(out: unknown): string {
   return "";
 }
 
-function buildInput(format: VisionFormat, bytes: Uint8Array): Record<string, unknown> {
-  const arr = Array.from(bytes);
+export type ImageKind = "jpeg" | "png" | "webp";
+
+/** Encodes up to 6MB safely without exceeding JS argument limits. */
+export function imageBase64(bytes: Uint8Array): string {
+  const parts: string[] = [];
+  for (let i = 0; i < bytes.length; i += 8192) {
+    parts.push(String.fromCharCode(...bytes.subarray(i, i + 8192)));
+  }
+  return btoa(parts.join(""));
+}
+function buildInput(format: VisionFormat, bytes: Uint8Array, kind: ImageKind): Record<string, unknown> {
+
   if (format === "simple") {
-    return { image: arr, prompt: TRANSCRIBE_PROMPT, max_tokens: 1024, temperature: 0 };
+    return { image: Array.from(bytes), prompt: TRANSCRIBE_PROMPT, max_tokens: 1024, temperature: 0 };
   }
   if (format === "messages-array") {
     // instruct vision models that take a messages array + raw image bytes
-    return { messages: [{ role: "user", content: TRANSCRIBE_PROMPT }], image: arr, max_tokens: 1024, temperature: 0 };
+    return { messages: [{ role: "user", content: TRANSCRIBE_PROMPT }], image: Array.from(bytes), max_tokens: 1024, temperature: 0 };
   }
   // "messages": chat content parts with a base64 data URI
-  const b64 = btoa(String.fromCharCode(...bytes));
+  const b64 = imageBase64(bytes);
   return {
     messages: [{
       role: "user",
       content: [
         { type: "text", text: TRANSCRIBE_PROMPT },
-        { type: "image_url", image_url: { url: `data:image/jpeg;base64,${b64}` } },
+        { type: "image_url", image_url: { url: `data:image/${kind};base64,${b64}` } },
       ],
     }],
     max_tokens: 1024,
@@ -76,8 +86,9 @@ export async function transcribeLabel(
   bytes: Uint8Array,
   model = DEFAULT_VISION_MODEL,
   format: VisionFormat = "messages",
+  kind: ImageKind = "jpeg",
 ): Promise<VisionResult> {
-  const out = await ai.run(model, buildInput(format, bytes));
+  const out = await ai.run(model, buildInput(format, bytes, kind));
   const usage = out && typeof out === "object" ? (out as Record<string, unknown>).usage ?? null : null;
   let rawSample = "";
   try { rawSample = (typeof out === "string" ? out : JSON.stringify(out)).slice(0, 300); } catch { /* ignore */ }
