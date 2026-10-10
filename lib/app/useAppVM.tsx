@@ -645,7 +645,7 @@ export function useAppVM() {
       rvTitle: u.revName.trim() || "Name not read yet", rvProv: rvBadges.map((b) => b.t).join(" · "),
       revName: u.revName, onRevName: (e: any) => set({ revName: e.target.value.slice(0, 180) }),
 
-      rvCats6: CATS.map(([val, t]) => { const s0 = sel(u.revCat === val); return { t, ...s0, bd: s0.bc === "#2A1911" ? "2px solid #2A1911" : "1.5px solid #C99A72", pick: () => set({ revCat: val }) }; }),
+      rvCats6: [...CATS, ["other", "Not sure"] as [ProductCategory, string]].map(([val, t]) => { const s0 = sel(u.revCat === val); return { t, ...s0, bd: s0.bc === "#2A1911" ? "2px solid #2A1911" : "1.5px solid #C99A72", pick: () => set({ revCat: val }) }; }),
       rvUse2: ([["rinse_off", "Rinse-off"], ["leave_on", "Leave-on"]] as const).map(([val, t]) => ({ t, ...seg(u.revUse === val), pick: () => set({ revUse: val }) })),
       revNext: () => { if (!u.revName.trim()) { toast("Type the product name first"); return; } if (!u.revCat) { toast("Pick what type of product it is"); return; } set({ revStep: 2 }); },
       retake: () => { if (u.candidateMethod === "paste") openSheet("paste"); else go("add", -1); },
