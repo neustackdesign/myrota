@@ -115,13 +115,13 @@ export function toInciIngredients(rawLines: string[], idPrefix = "ing"): InciIng
 
 /**
  * Split a declared INCI blob into ingredient strings at deterministic
- * separators only (comma, semicolon, newline, middle dot). Never splits inside
- * parentheses-free chemical names. Caps the count to avoid abuse.
+ * separators only (comma, semicolon, newline, middle dot), while retaining
+ * numeric ingredient names such as 1,2-Hexanediol and PEG-12,4 compounds. Caps the count to avoid abuse.
  */
 export function splitInciList(blob: string, max = 200): string[] {
   const clean = blob.replace(/^\s*ingredients?\s*[:：]\s*/i, "").replace(/\r\n?/g, "\n");
   return clean
-    .split(/[,;\n·•]+/)
+    .split(/(?<!\d),\s*|,\s*(?!\d)|[;\n·•]+/)
     .map((x) => x.trim())
     .filter(Boolean)
     .slice(0, max);
