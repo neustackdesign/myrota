@@ -642,7 +642,6 @@ export function useAppVM() {
         : "We read the ingredients, not the product name. Enter the brand and product name from the package.",
       revBrand: u.revBrand, onRevBrand: (e: any) => set({ revBrand: e.target.value.slice(0, 120) }),
       reviewEnrich: !!cand && cand.ingredients.length === 0 && cand.inciStatus === "unknown",
-      photoProcessing: busy === "extract",
       rvTitle: u.revName.trim() || "Name not read yet", rvProv: rvBadges.map((b) => b.t).join(" · "),
       revName: u.revName, onRevName: (e: any) => set({ revName: e.target.value.slice(0, 180) }),
 
