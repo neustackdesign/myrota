@@ -84,6 +84,15 @@ async function handleImage(request: Request): Promise<Response> {
     // rather than disguising the absence as camera blur. The front extraction
     // is also available explicitly without first paying for INCI OCR.
     if (!entries.length) {
+      // Each fallback is a SECOND paid inference. Count it against the
+      // same IP/user/global ceilings; request counting alone underestimates
+      // public scan costs by up to 2x for front-only labels.
+      const second = await enforceExtractQuota(e.DB, ip, user?.id ?? null, e);
+      if (!second.allowed) {
+        return Response.json({ error: "Photo reading is busy right now. Search by name or retry later." }, {
+          status: 429, headers: { "cache-control": "no-store", "retry-after": "3600" },
+        });
+      }
       frontRaw = await transcribeFrontLabel(e.AI, bytes, model, format, kind);
       aiCalls++;
     }
