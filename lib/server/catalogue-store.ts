@@ -1,6 +1,7 @@
 import type { CatalogueProduct, ProductCategory, ProductFormat } from "@/lib/domain/types";
 import { toInciIngredients } from "./inci";
 import catalogueData from "./catalogue-data.json";
+import manufacturerRecords from "./catalogue-manufacturer.json";
 
 /**
  * Local, provenance-bearing starter catalogue search.
@@ -40,14 +41,19 @@ interface IndexedRecord {
   haystack: string; // lowercased brand + name + variant for matching
 }
 
-const INDEX: IndexedRecord[] = (catalogueData as { products: RawRecord[] }).products.map((r) => ({
+// Manufacturer observations are maintained separately from ODbL imports;
+// each market/formulation is independently attributed and is never assumed
+// to match a physical SKU without barcode or packaging confirmation.
+const SOURCE_RECORDS = [...(catalogueData as { products: RawRecord[] }).products,
+  ...(manufacturerRecords as { products: RawRecord[] }).products];
+const INDEX: IndexedRecord[] = SOURCE_RECORDS.map((r) => ({
   product: {
     catalogueId: r.catalogueId,
     brand: r.brand,
     name: r.name,
     category: r.category,
     format: r.format,
-    identityKey: r.barcode, // real barcode is the stable identity key
+    identityKey: r.barcode || null, // no invented GTIN for manufacturer-listed products
     variant: r.variant,
     ingredients: toInciIngredients(r.ingredientStrings, r.catalogueId.replace(/[^a-z0-9]/gi, "")),
     inciStatus: "partial", // source-listed; user must confirm before it is analysable
