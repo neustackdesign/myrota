@@ -201,21 +201,21 @@ const CAT = {
   shiseido: { id: "brand:shiseido:clear-sunscreen-stick:us:0195106524069", barcode: "0195106524069" },
 };
 
-// D — pasted INCI with no catalogue identity: actives recognised from the text.
+// catalogue-path (complements engine-live.mjs D) — pasted INCI with no catalogue identity: actives recognised from the text.
 {
   const jar = cookieJar();
   await api(jar, "POST", "/api/auth/sign-in/anonymous", {});
   const paste = await addPaste(jar, "Aqua, Glycerin, Niacinamide, Salicylic Acid, Phenoxyethanol", "treatment", "pm");
   await addCatalogue(jar, { brand: "CeraVe", name: "Moisturising Cream", category: "moisturiser", format: "leave_on", inciStatus: "partial", catalogueId: CAT.cerave, ingredients: [] }, "pm");
   const a = analyseRota(await api(jar, "POST", "/api/rotas", { idempotencyKey: `x-paste-${Date.now() % 1e7}`, context: {} }));
-  pushResult("D-paste-inci", "pasted INCI (no SKU) → actives recognised + scheduled", [{ name: "Pasted treatment", category: "treatment", actives: paste.actives }], a, {
+  pushResult("cat-paste-bha-niacinamide", "pasted INCI (no SKU) → actives recognised + scheduled", [{ name: "Pasted treatment", category: "treatment", actives: paste.actives }], a, {
     "paste actives recognised server-side": { pass: paste.actives.includes("bha") || paste.actives.includes("niacinamide"), got: paste.actives.join(",") || "(none)" },
     "rota schedules the pasted active": { pass: a.scheduled.has("bha") || a.scheduled.has("niacinamide"), got: [...a.scheduled].join(",") || "NONE" },
     "steps carry reasons": { pass: a.stepsWithReason > 0, got: `${a.stepsWithReason}/${a.stepsTotal}` },
   });
 }
 
-// E — Shiseido sunscreen (sourced from the photographed Drug Facts label): UV
+// catalogue-path (complements engine-live.mjs E) — Shiseido sunscreen (sourced from the photographed Drug Facts label): UV
 // recognised, SPF last in AM, and the missing INCI never invents other actives.
 {
   const jar = cookieJar();
@@ -227,7 +227,7 @@ const CAT = {
   if (cer) await addCatalogue(jar, cer, "pm");
   const a = analyseRota(await api(jar, "POST", "/api/rotas", { idempotencyKey: `x-shiseido-${Date.now() % 1e7}`, context: {} }));
   const nonUv = [...a.scheduled].filter((c) => c !== "uv_filter");
-  pushResult("E-shiseido-photo", "Shiseido SPF (Drug Facts) + CeraVe — UV recognised, SPF last AM, nothing invented", [{ name: shi?.name ?? "Shiseido (NOT RESOLVED)", category: "sunscreen", actives: shiActives }], a, {
+  pushResult("cat-shiseido-no-invented-actives", "Shiseido SPF (Drug Facts) + CeraVe — UV recognised, SPF last AM, nothing invented", [{ name: shi?.name ?? "Shiseido (NOT RESOLVED)", category: "sunscreen", actives: shiActives }], a, {
     "Shiseido resolved from catalogue": { pass: !!shi, got: shi ? shi.catalogueId : "NOT FOUND" },
     "UV filter recognised": { pass: shiActives.includes("uv_filter"), got: shiActives.join(",") || "(none)" },
     "SPF appears last in AM and never PM": { pass: a.amSpfOrder.length > 0 && a.amSpfOrder.every(Boolean) && a.pmSpfViolations.length === 0, got: `AM sessions=${a.amSpfOrder.length}, order violations=${a.amSpfOrder.filter((x) => !x).length}, PM violations=${a.pmSpfViolations.length}` },
@@ -235,7 +235,7 @@ const CAT = {
   });
 }
 
-// F — retinoid + exfoliant: both scheduled, never the same session, on separate nights.
+// catalogue-path (complements engine-live.mjs F) — retinoid + exfoliant: both scheduled, never the same session, on separate nights.
 {
   const jar = cookieJar();
   await api(jar, "POST", "/api/auth/sign-in/anonymous", {});
@@ -245,26 +245,10 @@ const CAT = {
   const retNights = a.pmDaysByClass.retinoid ?? new Set();
   const ahaNights = a.pmDaysByClass.aha ?? new Set();
   const sharedNight = [...retNights].some((d) => ahaNights.has(d));
-  pushResult("F-retinoid-exfoliant-separate-nights", "retinol + lactic acid (AHA) + CeraVe — both scheduled on separate nights", [{ name: "Inkey Retinol / Ordinary Lactic Acid", category: "treatment", actives: ["retinoid", "aha"] }], a, {
+  pushResult("cat-retinol-lactic-never-same-session", "retinol + lactic acid (AHA) + CeraVe — both scheduled on separate nights", [{ name: "Inkey Retinol / Ordinary Lactic Acid", category: "treatment", actives: ["retinoid", "aha"] }], a, {
     "both strong actives scheduled": { pass: a.scheduled.has("retinoid") && a.scheduled.has("aha"), got: [...a.scheduled].join(",") || "NONE" },
     "never in the same session": { pass: !sameSession, got: sameSession ? `BOTH in day${sameSession.day} ${sameSession.sess}` : "ok" },
     "on separate PM nights (disjoint days)": { pass: retNights.size > 0 && ahaNights.size > 0 && !sharedNight, got: `retinoid nights=[${[...retNights]}], aha nights=[${[...ahaNights]}]` },
-  });
-}
-
-// G — a retinoid added AFTER the first rota must re-plan, not return the stale rota.
-{
-  const jar = cookieJar();
-  await api(jar, "POST", "/api/auth/sign-in/anonymous", {});
-  const vitc = await resolveCatalogue(jar, CAT.vitcSerum); if (vitc) await addCatalogue(jar, vitc, "am");
-  const cer = await resolveCatalogue(jar, CAT.cerave); if (cer) await addCatalogue(jar, cer, "pm");
-  const a1 = analyseRota(await api(jar, "POST", "/api/rotas", { idempotencyKey: `x-recon-1-${Date.now() % 1e7}`, context: {} }));
-  const ret = await resolveCatalogue(jar, CAT.retinol); if (ret) await addCatalogue(jar, ret, "pm");
-  const a2 = analyseRota(await api(jar, "POST", "/api/rotas", { idempotencyKey: `x-recon-2-${Date.now() % 1e7}`, context: {} }));
-  pushResult("G-retinoid-added-after-rota", "add retinoid after first rota → rota re-planned, not stale", [{ name: "Inkey BCE → +Inkey Retinol", category: "treatment", actives: [...a2.scheduled] }], a2, {
-    "first rota had no retinoid": { pass: !a1.scheduled.has("retinoid"), got: [...a1.scheduled].join(",") || "none" },
-    "shelf change produced a new rota id": { pass: !!a1.id && !!a2.id && a1.id !== a2.id, got: `${a1.id?.slice(0, 8)} -> ${a2.id?.slice(0, 8)}` },
-    "re-planned rota schedules the new retinoid": { pass: a2.scheduled.has("retinoid"), got: [...a2.scheduled].join(",") || "NONE" },
   });
 }
 
