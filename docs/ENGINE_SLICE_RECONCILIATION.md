@@ -19,34 +19,33 @@ its own versions; reconcile file-by-file if a local copy surfaces.
 ## 2. Why staging reports `photoReading: false`
 
 `photoReading` is `Boolean(env.AI) && env.PHOTO_READING_ENABLED === "1"`
-(`lib/server/capabilities.ts`). Two independent causes were found. Either one
-alone produces `false`:
+(`lib/server/capabilities.ts`).
 
-1. **Vercel staging PWA proxies to PRODUCTION.** The UI's `next.config.ts`
-   rewrites `/api/*` to `MYROTA_API_ORIGIN || https://myrota.neustackdesign.workers.dev`,
-   and `docs/DESIGN_DIFF_AND_CONTRACT.md` on the UI branch says Preview and
-   Production leave it unset. So unless the `myrota-staging-pilot` Vercel
-   project sets `MYROTA_API_ORIGIN=https://myrota-staging.neustackdesign.workers.dev`,
-   `https://myrota-staging-pilot.vercel.app/api/config` is answered by
-   production. Production `c600deaa` (deployed 2026-10-09T08:03Z) has no AI
-   binding, and it predates `capabilities` itself (added in `e870c8b`, 19:32 +04).
-   **Diagnose:** compare `/api/config` from the Vercel URL, from
-   `myrota.neustackdesign.workers.dev` and from `myrota-staging.neustackdesign.workers.dev`.
-   If the Vercel response matches production, this is the cause.
-   **Fix (Vercel dashboard, not code):** set `MYROTA_API_ORIGIN` on the
-   staging-pilot project for the environment it deploys, then redeploy.
-   The staging Worker's `MYROTA_TRUSTED_ORIGINS` secret must include
-   `https://myrota-staging-pilot.vercel.app`, and the Turnstile widget must
-   allow that host (see `scripts/pilot-allow-preview.sh`, adapted to `--name myrota-staging`).
-2. **A vinext deploy drops the AI binding.** `@vinext/cloudflare deploy` reads
-   only `cloudflare.config.ts`, which declared `ASSETS` + `DB` and nothing else.
-   The earlier working staging used `wrangler.staging.jsonc` (which has `ai`)
-   plus operator-set vars. Any vinext deploy to staging therefore shipped a
-   Worker with no `env.AI`. **Fixed in code:** see §3.
+**Live evidence (owner, read-only, 11 Oct — PR #20 comment):**
+`https://myrota-staging-pilot.vercel.app/api/config` and
+`https://myrota-staging.neustackdesign.workers.dev/api/config` return the SAME
+staging payload (Turnstile test site key, `capabilities: {catalogue: true,
+barcodeLookup: true, photoReading: false}`). Production returns a different
+Turnstile key and no `capabilities`. **So the public staging PWA already
+reaches the staging Worker; the Vercel proxy is not the cause.**
 
-Not changed: the capability formula, `/api/extract` quotas (per-IP, per-user
-and global, charged again for the second, front-label inference), auth, and
-the rule that images are never logged or persisted.
+An earlier draft of this section suspected the Vercel rewrite fallback
+(`MYROTA_API_ORIGIN || https://myrota.neustackdesign.workers.dev`). That was
+inferred from the UI branch's code/docs without live access and is **ruled out**
+by the evidence above. Do not change `MYROTA_API_ORIGIN` on that basis; the
+effective alias already resolves correctly.
+
+**Actual cause — the staging Worker has no `env.AI` and/or flag.**
+`@vinext/cloudflare deploy` reads only `cloudflare.config.ts`, which declared
+`ASSETS` + `DB` and nothing else. The earlier working staging used
+`wrangler.staging.jsonc` (which has `ai`) plus operator-set vars. A vinext
+deploy to staging therefore ships a Worker without the AI binding (and, if
+`PHOTO_READING_ENABLED` was a plain dashboard var, without the flag).
+**Fixed in code (§3), not yet deployed.**
+
+Unchanged: the capability formula, `/api/extract` quotas (per-IP/per-user/global,
+charged again for the second front-label inference), auth, and never logging
+or persisting images.
 
 ## 3. Guarded staging deploy (fixes the 11 Oct incident root cause)
 
@@ -179,7 +178,7 @@ by a later, stricter change (named).
 1. **Live verification has not been done in this session.** Still to run on staging:
    - `npm run deploy:staging` from a machine with Cloudflare credentials.
    - `BASE=https://myrota-staging.neustackdesign.workers.dev SHISEIDO_IMAGE=… node tests/acceptance/engine-live.mjs`.
-   - Then the same with `BASE=https://myrota-staging-pilot.vercel.app`, once `MYROTA_API_ORIGIN` is set.
+   - Then the same with `BASE=https://myrota-staging-pilot.vercel.app` (already routed to the staging Worker).
    - Then the visual PWA journey on an iPhone (camera + gallery).
 
    Until those pass, this pass has no real scan or staging result to report.
