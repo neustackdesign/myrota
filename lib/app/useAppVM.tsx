@@ -542,7 +542,7 @@ export function useAppVM() {
         if (!name) { toast("Give it a name first"); return; }
         let ok: boolean;
         if (u.unkFromReview && cand) {
-          ok = await addDraft({ brand: u.revBrand.trim() || "", name, category: u.revCat ?? "other", format: u.revUse ?? "unknown", identityStatus: "user_confirmed", inciStatus: corrected ? "corrected" : cand.inciStatus, identityKey: null, variant: cand.variant, ingredients: candIngredients, placement: u.unkPlace, source: u.candidateMethod, extractionId: cand.extractionId }, "Added to your shelf");
+          ok = await addDraft({ brand: u.revBrand.trim() || "", name, category: u.revCat ?? "other", format: u.revUse ?? "unknown", identityStatus: "user_confirmed", inciStatus: corrected ? "corrected" : cand.inciStatus, identityKey: null, variant: cand.variant, ingredients: candIngredients, labelActives: cand.labelActives ?? [], placement: u.unkPlace, source: u.candidateMethod, extractionId: cand.extractionId }, "Added to your shelf");
         } else if (u.selectedCatalogue) {
           const product = u.selectedCatalogue;
           if (shelf.some((p) => p.name.toLowerCase() === product.name.toLowerCase() && p.brand.toLowerCase() === product.brand.toLowerCase())) {
@@ -598,8 +598,23 @@ export function useAppVM() {
           const res = await repo.extract({ method, side: "back" }, prepared);
           if (!res.ok) { toast(PROBLEM_TEXT[res.problem]); return; }
           if (enrichIngredients) {
-            if (!u.candidate || res.candidate.ingredients.length === 0) {
-              toast("No ingredient list found. Photograph the full INCI list on the back."); return;
+            if (!u.candidate) { toast("Start with a product photo first."); return; }
+            if (res.candidate.ingredients.length === 0) {
+              // Drug Facts can declare genuine sunscreen actives without
+              // providing the full inactive ingredient list. Keep the data.
+              const found = res.candidate.labelActives ?? [];
+              if (found.length) {
+                const prior = u.candidate.labelActives ?? [];
+                const merged = [...prior];
+                for (const active of found) {
+                  if (!merged.some((a) => a.name.toLowerCase() === active.name.toLowerCase())) merged.push(active);
+                }
+                set({ candidate: { ...u.candidate, labelActives: merged }, revStep: 2 });
+                toast(`${found.length} labelled active ingredients read. The full formula is still needed.`);
+              } else {
+                toast("No full inactive-ingredient list found. If the label says OPEN, lift it and photograph the text underneath.");
+              }
+              return;
             }
             // Preserve the user's already-reviewed FRONT identity. Never replace
             // it with a model guess or manufacturer listing while enriching INCI.
@@ -642,6 +657,16 @@ export function useAppVM() {
         : "We read the ingredients, not the product name. Enter the brand and product name from the package.",
       revBrand: u.revBrand, onRevBrand: (e: any) => set({ revBrand: e.target.value.slice(0, 120) }),
       reviewEnrich: !!cand && cand.ingredients.length === 0 && cand.inciStatus === "unknown",
+      reviewLabelActives: cand?.labelActives ?? [],
+      reviewEnrichHeading: (cand?.labelActives?.length ?? 0)
+        ? `${cand!.labelActives!.length} labelled active ingredients found`
+        : "Ingredients not yet read",
+      reviewEnrichMessage: (cand?.labelActives?.length ?? 0)
+        ? "We found the actives printed on this label, but not the full inactive-ingredient formula. Check for an OPEN or peel-back label, then photograph the complete list. You can also save this product as incomplete."
+        : "No complete formula found yet. Photograph the ingredients on the back or under a peel-back label, or save the product with ingredients marked unknown.",
+      reviewEnrichFootnote: (cand?.labelActives?.length ?? 0)
+        ? "Active ingredients are label observations, not a verified complete INCI list. Myrota cannot assess the full formulation yet."
+        : "No full ingredient list has been read yet. You can still save the product as incomplete, but Myrota cannot assess its formula.",
       rvTitle: u.revName.trim() || "Name not read yet", rvProv: rvBadges.map((b) => b.t).join(" · "),
       revName: u.revName, onRevName: (e: any) => set({ revName: e.target.value.slice(0, 180) }),
 
