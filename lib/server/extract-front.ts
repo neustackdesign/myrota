@@ -61,7 +61,7 @@ export function parseLabelActives(visibleText: string): LabelActive[] {
   const region = visibleText.slice(start, start + 900);
   const list: LabelActive[] = [];
   for (const [lowerName, labelName] of Object.entries(DECLARED_ACTIVES)) {
-    const escaped = lowerName.replace(/[.*+?^${}()|[\\]\\]/g, "\\export function parseFrontLabel(raw: string): FrontIdentity | null {");
+    const escaped = lowerName.replace(/ /g, "\\s+");
     const match = new RegExp(`\\b${escaped}\\s*[:\\-]?\\s*(\\d{1,2}(?:\\.\\d+)?)\\s*%`, "i").exec(region);
     if (!match) continue;
     const percentage = Number(match[1]);
