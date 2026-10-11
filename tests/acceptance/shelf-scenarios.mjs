@@ -74,6 +74,60 @@ async function api(jar, method, path, body, extra = {}) {
   return { status: res.status, json };
 }
 
+// ---- helpers for the Issue #19 extended scenarios (added 2026-10-11) ----
+async function resolveCatalogue(jar, catalogueId, barcode) {
+  const gtin = barcode ?? (catalogueId.startsWith("obf:") ? catalogueId.slice(4) : null);
+  if (gtin) {
+    const look = await api(jar, "GET", `/api/catalogue?barcode=${encodeURIComponent(gtin)}`);
+    const rs = look.json?.results || [];
+    const hit = rs.find((r) => r.catalogueId === catalogueId) ?? rs[0];
+    if (hit) return hit;
+  }
+  const s = await api(jar, "GET", `/api/catalogue?q=${encodeURIComponent(catalogueId)}`);
+  return (s.json?.results || []).find((r) => r.catalogueId === catalogueId) ?? null;
+}
+async function addCatalogue(jar, cat, placement) {
+  const draft = { brand: cat.brand, name: cat.name, category: cat.category, format: cat.format === "unknown" ? "leave_on" : cat.format, identityStatus: "user_confirmed", inciStatus: cat.inciStatus ?? "partial", source: "search", catalogueId: cat.catalogueId, ingredients: cat.ingredients, placement };
+  return api(jar, "POST", "/api/shelf", { draft });
+}
+// Pasted INCI: no catalogue identity, user picks the category. Actives are
+// recognised server-side from the pasted text, not from any SKU.
+async function addPaste(jar, pastedText, category, placement) {
+  const ex = await api(jar, "POST", "/api/extract", { method: "paste", pastedText });
+  const cand = ex.json?.candidate;
+  if (!cand) return { ok: false, actives: [] };
+  const draft = { brand: null, name: `Pasted ${category}`, category, format: "leave_on", identityStatus: "unknown", inciStatus: cand.inciStatus ?? "partial", source: "paste", ingredients: cand.ingredients, placement };
+  const add = await api(jar, "POST", "/api/shelf", { draft });
+  return { ok: add.status === 201 || add.json?.duplicate, candidate: cand, actives: [...new Set((cand.ingredients || []).filter((i) => i.activeClass).map((i) => i.activeClass))] };
+}
+function analyseRota(rotaRes) {
+  const body = rotaRes?.json ?? rotaRes; // accept the api() envelope {status,json} or a raw body
+  const days = body?.rota?.days ?? [];
+  const scheduled = new Set();
+  const pmDaysByClass = {}; // activeClass -> Set(dayIndex)
+  const sessionActives = [];
+  const amSpfOrder = [], pmSpfViolations = [];
+  let stepsWithReason = 0, stepsTotal = 0;
+  for (const d of days) for (const sess of ["am", "pm"]) {
+    const steps = d[sess] ?? [];
+    const sunIdx = steps.flatMap((p, i) => p.category === "sunscreen" ? [i] : []);
+    if (sess === "am" && sunIdx.length) amSpfOrder.push(sunIdx.every((idx) => idx === steps.length - 1));
+    if (sess === "pm" && sunIdx.length) pmSpfViolations.push(d.index);
+    const classes = [];
+    for (const step of steps) {
+      stepsTotal++;
+      if (step.activeClass) { scheduled.add(step.activeClass); classes.push(step.activeClass); if (sess === "pm") (pmDaysByClass[step.activeClass] ??= new Set()).add(d.index); }
+      if (step.reason || step.label || step.why) stepsWithReason++;
+    }
+    if (classes.length) sessionActives.push({ day: d.index, sess, classes });
+  }
+  return { id: body?.rota?.id, days, scheduled, pmDaysByClass, sessionActives, amSpfOrder, pmSpfViolations, stepsWithReason, stepsTotal };
+}
+const pushResult = (shelf, label, added, a, checks) => {
+  const failed = Object.entries(checks).filter(([, c]) => c && !c.pass);
+  results.push({ shelf, label, added, recognisedActives: added.flatMap((x) => x.actives || []), scheduledActives: [...(a?.scheduled ?? [])], rotaDays: a?.days?.length ?? 0, checks, pass: failed.length === 0 });
+};
+
 const results = [];
 for (const shelf of SHELVES) {
   const jar = cookieJar();
@@ -138,7 +192,83 @@ for (const shelf of SHELVES) {
   results.push({ shelf: shelf.id, label: shelf.label, added, recognisedActives: [...recognisedActives], scheduledActives: [...scheduledActives], rotaDays: days.length, checks, pass: failed.length === 0 });
 }
 
-console.log("==== RED-TEAM live-API shelf acceptance (baseline) ====\n");
+// ===================== Issue #19 extended scenarios (added 2026-10-11) =====================
+const CAT = {
+  retinol: "obf:5061087560738",        // Inkey retinol
+  lactic: "obf:0769915190373",         // Ordinary Lactic Acid 10% (AHA)
+  cerave: "obf:3337875598996",         // CeraVe moisturising cream (no actives)
+  vitcSerum: "obf:5060879821989",      // Inkey B,C,E (vitamin C)
+  shiseido: { id: "brand:shiseido:clear-sunscreen-stick:us:0195106524069", barcode: "0195106524069" },
+};
+
+// D — pasted INCI with no catalogue identity: actives recognised from the text.
+{
+  const jar = cookieJar();
+  await api(jar, "POST", "/api/auth/sign-in/anonymous", {});
+  const paste = await addPaste(jar, "Aqua, Glycerin, Niacinamide, Salicylic Acid, Phenoxyethanol", "treatment", "pm");
+  await addCatalogue(jar, { brand: "CeraVe", name: "Moisturising Cream", category: "moisturiser", format: "leave_on", inciStatus: "partial", catalogueId: CAT.cerave, ingredients: [] }, "pm");
+  const a = analyseRota(await api(jar, "POST", "/api/rotas", { idempotencyKey: `x-paste-${Date.now() % 1e7}`, context: {} }));
+  pushResult("D-paste-inci", "pasted INCI (no SKU) → actives recognised + scheduled", [{ name: "Pasted treatment", category: "treatment", actives: paste.actives }], a, {
+    "paste actives recognised server-side": { pass: paste.actives.includes("bha") || paste.actives.includes("niacinamide"), got: paste.actives.join(",") || "(none)" },
+    "rota schedules the pasted active": { pass: a.scheduled.has("bha") || a.scheduled.has("niacinamide"), got: [...a.scheduled].join(",") || "NONE" },
+    "steps carry reasons": { pass: a.stepsWithReason > 0, got: `${a.stepsWithReason}/${a.stepsTotal}` },
+  });
+}
+
+// E — Shiseido sunscreen (sourced from the photographed Drug Facts label): UV
+// recognised, SPF last in AM, and the missing INCI never invents other actives.
+{
+  const jar = cookieJar();
+  await api(jar, "POST", "/api/auth/sign-in/anonymous", {});
+  const shi = await resolveCatalogue(jar, CAT.shiseido.id, CAT.shiseido.barcode);
+  const shiActives = shi ? [...new Set(shi.ingredients.filter((i) => i.activeClass).map((i) => i.activeClass))] : [];
+  if (shi) await addCatalogue(jar, shi, "am");
+  const cer = await resolveCatalogue(jar, CAT.cerave);
+  if (cer) await addCatalogue(jar, cer, "pm");
+  const a = analyseRota(await api(jar, "POST", "/api/rotas", { idempotencyKey: `x-shiseido-${Date.now() % 1e7}`, context: {} }));
+  const nonUv = [...a.scheduled].filter((c) => c !== "uv_filter");
+  pushResult("E-shiseido-photo", "Shiseido SPF (Drug Facts) + CeraVe — UV recognised, SPF last AM, nothing invented", [{ name: shi?.name ?? "Shiseido (NOT RESOLVED)", category: "sunscreen", actives: shiActives }], a, {
+    "Shiseido resolved from catalogue": { pass: !!shi, got: shi ? shi.catalogueId : "NOT FOUND" },
+    "UV filter recognised": { pass: shiActives.includes("uv_filter"), got: shiActives.join(",") || "(none)" },
+    "SPF appears last in AM and never PM": { pass: a.amSpfOrder.length > 0 && a.amSpfOrder.every(Boolean) && a.pmSpfViolations.length === 0, got: `AM sessions=${a.amSpfOrder.length}, order violations=${a.amSpfOrder.filter((x) => !x).length}, PM violations=${a.pmSpfViolations.length}` },
+    "no non-UV actives invented from missing INCI": { pass: nonUv.length === 0, got: nonUv.length ? `INVENTED ${nonUv.join(",")}` : "ok" },
+  });
+}
+
+// F — retinoid + exfoliant: both scheduled, never the same session, on separate nights.
+{
+  const jar = cookieJar();
+  await api(jar, "POST", "/api/auth/sign-in/anonymous", {});
+  for (const id of [CAT.retinol, CAT.lactic, CAT.cerave]) { const c = await resolveCatalogue(jar, id); if (c) await addCatalogue(jar, c, c.category === "moisturiser" ? "pm" : "pm"); }
+  const a = analyseRota(await api(jar, "POST", "/api/rotas", { idempotencyKey: `x-sep-${Date.now() % 1e7}`, context: {} }));
+  const sameSession = a.sessionActives.find((s) => s.classes.includes("retinoid") && s.classes.includes("aha"));
+  const retNights = a.pmDaysByClass.retinoid ?? new Set();
+  const ahaNights = a.pmDaysByClass.aha ?? new Set();
+  const sharedNight = [...retNights].some((d) => ahaNights.has(d));
+  pushResult("F-retinoid-exfoliant-separate-nights", "retinol + lactic acid (AHA) + CeraVe — both scheduled on separate nights", [{ name: "Inkey Retinol / Ordinary Lactic Acid", category: "treatment", actives: ["retinoid", "aha"] }], a, {
+    "both strong actives scheduled": { pass: a.scheduled.has("retinoid") && a.scheduled.has("aha"), got: [...a.scheduled].join(",") || "NONE" },
+    "never in the same session": { pass: !sameSession, got: sameSession ? `BOTH in day${sameSession.day} ${sameSession.sess}` : "ok" },
+    "on separate PM nights (disjoint days)": { pass: retNights.size > 0 && ahaNights.size > 0 && !sharedNight, got: `retinoid nights=[${[...retNights]}], aha nights=[${[...ahaNights]}]` },
+  });
+}
+
+// G — a retinoid added AFTER the first rota must re-plan, not return the stale rota.
+{
+  const jar = cookieJar();
+  await api(jar, "POST", "/api/auth/sign-in/anonymous", {});
+  const vitc = await resolveCatalogue(jar, CAT.vitcSerum); if (vitc) await addCatalogue(jar, vitc, "am");
+  const cer = await resolveCatalogue(jar, CAT.cerave); if (cer) await addCatalogue(jar, cer, "pm");
+  const a1 = analyseRota(await api(jar, "POST", "/api/rotas", { idempotencyKey: `x-recon-1-${Date.now() % 1e7}`, context: {} }));
+  const ret = await resolveCatalogue(jar, CAT.retinol); if (ret) await addCatalogue(jar, ret, "pm");
+  const a2 = analyseRota(await api(jar, "POST", "/api/rotas", { idempotencyKey: `x-recon-2-${Date.now() % 1e7}`, context: {} }));
+  pushResult("G-retinoid-added-after-rota", "add retinoid after first rota → rota re-planned, not stale", [{ name: "Inkey BCE → +Inkey Retinol", category: "treatment", actives: [...a2.scheduled] }], a2, {
+    "first rota had no retinoid": { pass: !a1.scheduled.has("retinoid"), got: [...a1.scheduled].join(",") || "none" },
+    "shelf change produced a new rota id": { pass: !!a1.id && !!a2.id && a1.id !== a2.id, got: `${a1.id?.slice(0, 8)} -> ${a2.id?.slice(0, 8)}` },
+    "re-planned rota schedules the new retinoid": { pass: a2.scheduled.has("retinoid"), got: [...a2.scheduled].join(",") || "NONE" },
+  });
+}
+
+console.log("==== live-API shelf acceptance (baseline + Issue #19 extended) ====\n");
 for (const r of results) {
   console.log(`SHELF ${r.shelf} — ${r.label}`);
   console.log(`  products: ${r.added.map((a) => `${a.name.slice(0, 26)}[${a.category}${a.actives.length ? ":" + a.actives.join("+") : ""}]`).join(" | ")}`);
