@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { parseFrontLabel } from "../../lib/server/extract-front";
+import { parseFrontLabel, parseLabelActives } from "../../lib/server/extract-front";
 
 const sample = JSON.stringify({
   visible_text: "Minimalist Polyhydroxy Acid (PHA) 03% FACE TONER with multi-biotics 150 mL / 5 fl. oz.",
@@ -17,6 +17,7 @@ test("clear user front label identifies product without inventing formula or bar
     category: "toner",
     variant: "150 mL",
     visibleText: "Minimalist Polyhydroxy Acid (PHA) 03% FACE TONER with multi-biotics 150 mL / 5 fl. oz.",
+    labelActives: [],
   });
 });
 
@@ -42,4 +43,32 @@ test("no usable front label and malformed model JSON fail closed", () => {
   assert.equal(parseFrontLabel("UNREADABLE"), null);
   assert.equal(parseFrontLabel("What a lovely serum"), null);
   assert.equal(parseFrontLabel('{"name":"Niacinamide Serum","brand":"Example"}'), null);
+});
+
+test("real Shiseido Clear Sunscreen Stick Drug Facts retains four labelled UV actives", () => {
+  const raw = JSON.stringify({
+    visible_text: "SHISEIDO CLEAR SUNSCREEN STICK Active ingredients\nAVOBENZONE 2.5%\nHOMOSALATE 10.0%\nOCTISALATE 5.0%\nOCTOCRYLENE 10.0%\nSHISEIDO AMERICAS CORPORATION DIST. MADE IN U.S.A. 20g NET WT .7 OZ OPEN",
+    brand: "Shiseido",
+    name: "Clear Sunscreen Stick",
+    category: "sunscreen",
+    size: "20g",
+  });
+  const product = parseFrontLabel(raw);
+  assert.ok(product);
+  assert.equal(product.brand, "Shiseido");
+  assert.equal(product.name, "Clear Sunscreen Stick");
+  assert.deepEqual(product.labelActives, [
+    { name: "Avobenzone", percentage: 2.5 },
+    { name: "Homosalate", percentage: 10 },
+    { name: "Octisalate", percentage: 5 },
+    { name: "Octocrylene", percentage: 10 },
+  ]);
+});
+
+test("does not promote SPF, percent marketing claims or unheaded ingredients to Drug Facts", () => {
+  assert.deepEqual(parseLabelActives("PHA 3% Face Toner with Niacinamide 5%"), []);
+  assert.deepEqual(parseLabelActives("Avobenzone 2.5% Homosalate 10.0%"), []);
+  assert.deepEqual(parseLabelActives("Active ingredients: Avobenzone 2.5%, Hydroquinone 7%"), [
+    { name: "Avobenzone", percentage: 2.5 },
+  ]);
 });

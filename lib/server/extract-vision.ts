@@ -102,14 +102,16 @@ export async function transcribeLabel(
  * transcription is unavailable, or a user explicitly chooses a front photo.
  */
 const FRONT_PROMPT =
-  'Transcribe ONLY words actually visible on the FRONT of this cosmetic package. ' +
+  'Transcribe ALL words actually visible on this product label (front, back, or Drug Facts). ' +
   'Return exactly one JSON object with keys visible_text (verbatim visible words), ' +
   'brand, name, category, size. Values must be strings or null. ' +
   'Name the exact visible product, not an ingredient or a guessed retail listing. ' +
   'Category must be one of cleanser, toner, serum, treatment, moisturiser, sunscreen, other ' +
   'only when literally printed; otherwise null. Size must be text printed on the label. ' +
   'No INCI list, claimed formulation, ingredient completion, barcode, medical advice or guesses. ' +
-  'If no front-label product name is visible use null for name. Output valid JSON only.';
+  'If an Active ingredients/Drug Facts panel lists named ingredients and percentages, copy that heading, each name and each percentage VERBATIM into visible_text. ' +
+  'These are labelled actives only, NOT the complete inactive-ingredient or INCI list. Do not omit, invent or infer concentrations. ' +
+  'If no product name is visible use null for name. Output valid JSON only.';
 
 export async function transcribeFrontLabel(
   ai: WorkersAi,

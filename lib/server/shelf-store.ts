@@ -55,6 +55,7 @@ export function shelfRowToProduct(row: ShelfRow) {
     identityKey: row.identity_key,
     variant: typeof evidence.variant === "string" ? evidence.variant : null,
     ingredients: safeArray(row.inci_json),
+    labelActives: Array.isArray(evidence.labelActives) ? evidence.labelActives : [],
     flags: Array.isArray(evidence.flags) ? evidence.flags : [],
     placement: typeof evidence.placement === "string" ? evidence.placement : undefined,
     source: row.source,
@@ -120,11 +121,26 @@ export async function addShelfProduct(ownerUserId: string, input: unknown) {
   const serializedIngredients = JSON.stringify(ingredients);
   if (serializedIngredients.length > 64_000) throw new Error("validation:ingredients");
 
+  // This is user-supplied *observational* Drug Facts evidence, not a verified
+  // complete formula or a trusted ingredient/clinical-rules input.
+  const rawLabelActives = Array.isArray(draft.labelActives) ? draft.labelActives : [];
+  if (rawLabelActives.length > 12) throw new Error("validation:label_actives");
+  const labelActives = rawLabelActives.map((entry) => {
+    if (!entry || typeof entry !== "object" || Array.isArray(entry)) throw new Error("validation:label_actives");
+    const item = entry as Json;
+    const name = str(item.name, 60, true);
+    const percentage = item.percentage;
+    if (typeof percentage !== "number" || !Number.isFinite(percentage) || percentage <= 0 || percentage > 100) {
+      throw new Error("validation:label_actives");
+    }
+    return { name, percentage };
+  });
   const now = new Date().toISOString();
   const id = crypto.randomUUID();
   const evidence = JSON.stringify({
     variant: typeof draft.variant === "string" ? draft.variant.slice(0, 120) : null,
     placement: typeof draft.placement === "string" ? draft.placement : null,
+    labelActives,
     flags: [],
     provenance: {
       extractionId: typeof draft.extractionId === "string" ? draft.extractionId.slice(0, 160) : null,

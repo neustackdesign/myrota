@@ -15,7 +15,7 @@ import type {
   Feeling,
   IanaTimeZone,
   ISODateTime,
-  InciIngredient,
+  InciIngredient, LabelActive,
   PlanContext,
   ProductCategory,
   ProductFormat,
@@ -68,6 +68,8 @@ export interface ProductDraft {
   identityKey?: string | null;
   variant?: string | null;
   ingredients: InciIngredient[];
+  /** Observed actives with printed percentages; NEVER full-formula confidence. */
+  labelActives?: LabelActive[];
   placement?: UserPlacement;
   source: ShelfProduct["source"];
   /** Set when the draft came from a catalogue result or an extraction, so the server can re-verify. */
@@ -124,6 +126,8 @@ export interface ExtractionCandidate {
   identityKey: string | null;
   variant: string | null;
   ingredients: InciIngredient[];
+  /** Partial Drug Facts evidence, not the complete INCI declaration. */
+  labelActives?: LabelActive[];
   /** Flags may only come from reviewed rules / verified alerts; the server decides. */
   flags: SafetyFlag[];
   provider: string;

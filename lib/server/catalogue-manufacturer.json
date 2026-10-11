@@ -1,6 +1,6 @@
 {
   "generatedAt": "2026-10-10",
-  "note": "Manufacturer-listed distinct formulations. NOT confirmed as the user's physical item. No barcode, no exact SKU identity; match requires label/market confirmation. Never elevate to verified ingredient evidence.",
+  "note": "Market/formulation-specific manufacturer declarations; partial source_listed data are NEVER the same as a photographed full formula. Do not auto-confirm a physical item's formulation from a matching name or active percentages.",
   "products": [
     {
       "catalogueId": "brand:minimalist:pha3-toner:global",
@@ -121,6 +121,51 @@
         "observedAt": "2026-10-10",
         "level": "source_listed",
         "license": "Brand-declared factual ingredient names; source and market attribution required"
+      }
+    },
+    {
+      "catalogueId": "brand:shiseido:clear-sunscreen-stick:us:0195106524069",
+      "barcode": "0195106524069",
+      "brand": "Shiseido",
+      "name": "Clear Sunscreen Stick SPF 50",
+      "category": "sunscreen",
+      "format": "leave_on",
+      "variant": "US · 20 g · SPF 50 · legacy formula (confirm exact package/GTIN)",
+      "ingredientStrings": [
+        "Avobenzone",
+        "Homosalate",
+        "Octisalate",
+        "Octocrylene",
+        "Diphenylsiloxy Phenyl Trimethicone",
+        "Mineral Oil",
+        "Hydroxystearic Acid",
+        "Triethylhexanoin",
+        "PEG/PPG-9/2 Dimethyl Ether",
+        "Methyl Methacrylate Crosspolymer",
+        "Dibutyl Lauroyl Glutamide",
+        "C12-15 Alkyl Benzoate",
+        "Polyamide-8",
+        "Silica Dimethyl Silylate",
+        "Tocopheryl Acetate",
+        "PEG/PPG-14/7 Dimethyl Ether",
+        "Lecithin",
+        "Glycyrrhiza Glabra (Licorice) Root Extract",
+        "PPG-17",
+        "Castor Oil/IPDI Copolymer",
+        "Caprylic/Capric Triglyceride",
+        "BHT",
+        "Tocopherol",
+        "PEG-6",
+        "Pentaerythrityl Tetra-di-t-butyl Hydroxyhydrocinnamate",
+        "Silica",
+        "Fragrance"
+      ],
+      "provenance": {
+        "source": "Shiseido US official full ingredient declaration; separate external GTIN/product-ID corroboration",
+        "sourceUrl": "https://www.shiseido.com/us/en/0195106524069-full-ingredients.html",
+        "observedAt": "2026-10-11",
+        "level": "source_listed",
+        "license": "Manufacturer-declared factual ingredient names only; market/formulation-specific observation. Exact user's package not confirmed."
       }
     }
   ]

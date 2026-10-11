@@ -87,3 +87,15 @@ test("Minimalist PHA toner can be discovered by front-label text without pretend
     matches[1].ingredients.map((i) => i.text),
     "different regional official formulations must not be merged");
 });
+
+test("Shiseido sunscreen legacy US listing retains separate source, confirmed GTIN and unconfirmed INCI", () => {
+  const matches = searchCatalogue("Shiseido Clear Sunscreen Stick");
+  const record = matches.find((p) => p.catalogueId === "brand:shiseido:clear-sunscreen-stick:us:0195106524069");
+  assert.ok(record, "manufacturer-backed legacy stick is searchable");
+  assert.equal(record.identityKey, "0195106524069");
+  assert.equal(record.inciStatus, "partial", "online declared formula not user-confirmed");
+  assert.ok(record.ingredients.some((x) => x.normalized === "avobenzone"));
+  const indexed = getCatalogueRecord(record.catalogueId);
+  assert.equal(indexed?.provenance.sourceUrl,
+    "https://www.shiseido.com/us/en/0195106524069-full-ingredients.html");
+});
