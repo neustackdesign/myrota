@@ -120,6 +120,8 @@ export function startNextWeek(
     createdAt: args.now,
     products: args.products,
     previousRotaId: current.id,
+    // Recovery spacing across the week boundary: week 1's last night feeds day 0.
+    previousFinalNight: args.build.previousFinalNight ?? current.days[6].pm.flatMap((s) => (s.activeClass ? [s.activeClass] : [])),
   });
   return {
     status: "started",
