@@ -1,9 +1,9 @@
 # myrota — Canonical engineering contract
-**Status:** Cloudflare-first architecture LOCKED · 8 October 2026
+**Status:** Cloudflare architecture preserved; consumer-routine intelligence contract updated 11 October 2026
 **Pilot goal:** 10 real users, target 16 October 2026; *date is conditional on passed gates, not a licence to ship inaccurate skincare advice*.
 
 ## Read order and authority
-1. This file: architectural and behavioural contract.
+1. [Issue #19](https://github.com/neustackdesign/myrota/issues/19): **current P0 consumer routine intelligence and release acceptance authority**; it overrides outdated reviewer/gate constraints in historic project documents.\n2. This file: architecture, data/auth and privacy contract (subject to Issue #19 for routine product behaviour).
 2. `docs/CLOUDFLARE_GATE1.md`: provision/deploy checklist, pass/fail log and no-secrets rules.
 3. `docs/INGESTION_BENCHMARK.md` and `scripts/evaluate-label-benchmark.mjs`: 30 real-label evidence gate.
 4. Approved Brand Identity v4 + latest corrected MVP Prototype v1.2 + Component System: **visual UX authority**, after user supplies the final assets to Claude Code.
@@ -29,7 +29,7 @@ Brevo Free: 300 sends/day, including transactional; count **all** sends/resends,
 ## Nonnegotiable product promise
 **Show myrota what you already own → get an explainable seven-day routine → follow it → continue → invite someone who creates their own rota.**
 - **Understand:** Scan back label, search, paste INCI, gallery; front label only when needed for identity; editable product name/type/ingredient chips; confidence independent for SKU and ingredients (verified/user-confirmed/partial/unknown/corrected). ANY product may be held on user's Shelf. Unknown products must never be treated as safe or compatible.
-- **Plan:** reviewed rule engine, ordered AM/PM sessions, contextual questions when relevant, Shelf Check max 3 observations, 7-day reveal, no fake confident compatibility. `/mix` public entry point returns one of Fine together, Better separated, Alternate days, Check with a professional, Not enough evidence; unreviewed rules default to **Not enough evidence**.
+- **Plan:** a **consumer skincare routine engine** using evidence-backed known-present actives (including partial labels), sourced product directions, user preferences, clear general layering conventions and an editable, explained seven-day AM/PM sequence. **No external medical reviewer is a prerequisite to ship nonmedical routine ordering and general scheduling suggestions.** Unknown/full-formula-incomplete stays honestly labelled; do not claim a pair is medically safe or regulator-approved from missing evidence. `/mix` can show an explicitly provisional routine separation or insufficient evidence rather than always returning empty. Clinically consequential contraindications/prescriptions are narrowly escalated. **Binding acceptance and policy: Issue #19.**
 - **Do:** One tap per scheduled AM/PM session, no per-product checklists, explicit one-tap Rest Day when no sessions, recovery/swap, 04:00 *user-local* skincare-day rollover, no catch-up doubling; streak + Rescue derived from dated events.
 - **Continue:** Day 7 separates 7/7 full adherence from partial Week Ended; retain complete event history; optional calm/irritated reflection saved by rota; week 2 continues same shelf and reviewed scheduling constraints without automatic increased treatment frequency.
 - **Spread:** reusable opaque invite tokens, one-to-many invitation joins, each friend their own plan, pairwise Friend Streak from both qualifying daily adherence records, WhatsApp share and user-initiated nudge, privacy-preserving share previews and working destinations. Product names opt-in; safe reviewed active classes can appear on Mix share cards. Real friend progress on Today.
@@ -53,7 +53,7 @@ Better Auth anonymous `onLinkAccount` may delete the anonymous identity by defau
 - Make merge atomic/idempotent/retry-safe and test interruption halfway through. Never delete the guest until success is verified; log correlation IDs, not sensitive content.
 
 ## Safety and regulatory integrity
-- All clinical/therapeutic rules and SafetyFlags require appropriate pharmacist/dermatologist reviewer attribution, evidence refs and active version. Draft fixtures MUST NOT appear to users as confident advice.
+- **Scope boundary:** Myrota is a consumer skincare planner, not a diagnostic, prescribing or medical-clearance service. Ordinary category ordering, sourced usage directions, user-selected cadence and transparent general cosmetic-routine heuristics may ship **without pharmacist/dermatologist sign-off**. Do not mislabel them as clinician-reviewed. Specific clinical contraindication, prescription-treatment, pregnancy-risk or regulatory safety claims still require appropriate evidence and qualified review before being presented as authoritative. Draft clinical fixtures MUST NOT appear as reviewed medical facts.
 - Distinguish **label-declared ingredient warning** from **verified product+variant regulatory alert**. Never trigger a named-product regulator alert from OCR guess or user-typed name alone; link the exact authoritative notice, obtain legal/content review. Unknown/unmatched is NOT evidence of safety. CosIng is name-normalisation, not product safety certification.
 - Preserve readability and confidence scopes; reviews never silently turn identity correctness into ingredient confidence. Ask for correction or show insufficient evidence.
 
@@ -73,17 +73,20 @@ Better Auth anonymous `onLinkAccount` may delete the anonymous identity by defau
 13. Guest→new Google/email identity and guest→**existing account with prior shelf**: deterministic atomic merge; union and dedup; real completion precedence; recomputed streak; pairs/invites preserved; safety context stays device-local.
 Also verify actual paired Friend Streak across Lagos/Dubai timezones and one-product Rest cases.
 
-## 30-label extraction gate
+## 30-label extraction benchmark (scaling gate; NOT prerequisite to core planner vertical slice)
 - 30 real labels from Lagos local, Dubai/imported and difficult cases; >=90% legible-active recall, >=24/30 correct identity, zero invented confident actives, zero overconfident misses, every partial/unknown recoverable. Never pass with synthetic-only benchmark fixtures.
 - Record actual `ai_neurons_per_scan` (including fallback attempts), input bytes, provider/model, latency median/p95, requests, cost estimate, region, correction rate; derive practical scans/day under 10k neurons.
 - Avoid storing user images in public GitHub; benchmark samples private/consented. Fleetpass Cloudflare→Groq evidence in `docs/FLEETPASS_EXTRACTION_REUSE.md` is an informed baseline, not a mandate.
 
 ## Gate plan (no phase skipping)
 **Gate 1 — Foundation (NOW)**: `next build` remains green; Vinext check/init+build+Workers Free deployed (or recorded blocker); D1 Drizzle migrations; Better Auth anonymous signup, Google/OTP paths (or secret-dependent blockers explicitly reported), secure shelf write/read, test both merge paths and CPU/latency. Decide $5 at THIS gate if performance requires it.
-**Gate 2 — Intelligence**: real OCR/provider benchmark; review UI; versioned rules, safety review, provenance; neuron metric and 30-label real-data PASS.
+**Gate 2 — Intelligence**: FIRST pass the actual active-driven Shelf→Mix→seven-day Rota live acceptance in Issue #19 on 10 real shelves plus 10 unseen holdouts; source-backed actives and consumer routine conventions need no professional sign-off. OCR provider 30-label accuracy benchmarking remains a subsequent scaling gate.
 **Gate 3 — Behaviour**: all 13 regression scenarios and timezone/pair cases green.
 **Gate 4 — Growth**: real reusable token→recipient own rota→two-sided streak; account claim, cards/share/OG, install/reminders.
-**Gate 5 — Release**: visual fidelity to approved assets, provider branding, professional signoff, licensed photos, cross-device/browser tests, usage monitoring and 10-user beta.
+**Gate 5 — Release**: evidence-based consumer guidance and explained limitations, real product-owner acceptance, visual fidelity, licensed photos, cross-device/browser tests, usage monitoring and 10-user pilot; professional sign-off is **not a blanket release dependency** for general cosmetic-routine planning. Obtain narrowly scoped review only before representing medically consequential claims as authoritative.
+
+## Active working-branch override (11 October 2026)
+The historical infrastructure/design branch split below is preserved as archival context. **Current implementation branch is `core/engine-slice`**, with tested three-shelf failing baseline and known-present active evidence, progressing directly to a working runtime planner. Do not restart from main, freeze ordinary routine design behind a reviewer, or spin up more product-specific PRs. Follow Issue #19. Keep the currently working public staging pilot until the replacement is verified; production unchanged.
 
 ## Working arrangements — simultaneous execution
 - **Infrastructure branch**: `infra/cloudflare-gate1` owned by ChatGPT. ONLY modify backend/infra, data contracts, test harness, migrations, CI, config and infrastructure documentation. Report commits and red/green verification.
