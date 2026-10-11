@@ -12,11 +12,11 @@
  *   node tests/acceptance/shelf-scenarios.mjs            # against staging
  *   BASE=http://localhost:8787 node tests/acceptance/shelf-scenarios.mjs
  *
- * Acceptance invariant (per the 17 Oct policy addendum):
+ * Acceptance invariant (per the CURRENT Issue #19 consumer routine policy):
  *   - key actives of each product are recognised,
  *   - basic order is correct (cleanse → treatment → moisturise → SPF-last-in-AM),
- *   - at least one active is actually scheduled with an attached reason,
- *   - two strong actives (retinoid/AHA/BHA/PHA/BPO) never share a session,
+ *   - eligible strong actives are actually scheduled (both on the retinoid+AHA shelf), with rationale,
+ *   - different intensive products are placed on separate sessions as a transparent default,
  *   - unknown remainder / held products are explicit.
  * A rota that schedules NO actives at all FAILS.
  */
@@ -31,7 +31,7 @@ const SHELVES = [
       { catalogueId: "obf:0769915190373", expectActives: ["aha"], category: "treatment" },        // Ordinary Lactic Acid 10%
       { catalogueId: "obf:3337875598996", expectActives: [], category: "moisturiser" },            // CeraVe cream
     ],
-    expect: { strongActives: ["retinoid", "aha"], neverSameSession: true, minScheduledActives: 1 },
+    expect: { strongActives: ["retinoid", "aha"], neverSameSession: true, minScheduledActives: 2 },
   },
   {
     id: "B-pha-spf-moisturiser",
@@ -88,7 +88,7 @@ for (const shelf of SHELVES) {
     if (!cat) { const s = await api(jar, "GET", `/api/catalogue?q=${encodeURIComponent(p.category)}`); cat = (s.json?.results || []).find((r) => r.catalogueId === p.catalogueId); }
     if (!cat) continue;
     for (const ing of cat.ingredients) if (ing.activeClass) recognisedActives.add(ing.activeClass);
-    const draft = { brand: cat.brand, name: cat.name, category: cat.category, format: cat.format === "unknown" ? "leave_on" : cat.format, identityStatus: "user_confirmed", inciStatus: "user_confirmed", source: "search", catalogueId: cat.catalogueId, ingredients: cat.ingredients, placement: "pm" };
+    const draft = { brand: cat.brand, name: cat.name, category: cat.category, format: cat.format === "unknown" ? "leave_on" : cat.format, identityStatus: "user_confirmed", inciStatus: cat.inciStatus ?? "partial", source: "search", catalogueId: cat.catalogueId, ingredients: cat.ingredients, placement: p.category === "sunscreen" ? "am" : "pm" };
     const add = await api(jar, "POST", "/api/shelf", { draft });
     added.push({ name: cat.name, category: cat.category, saved: add.status === 201 || add.json?.duplicate, actives: [...new Set(cat.ingredients.filter((i) => i.activeClass).map((i) => i.activeClass))] });
   }
@@ -98,8 +98,16 @@ for (const shelf of SHELVES) {
   const scheduledActives = new Set();
   let stepsWithReason = 0, stepsTotal = 0;
   const sessionActives = [];
+  const amSpfOrder = [];
+  const pmSpfViolations = [];
   for (const d of days) {
     for (const sess of ["am", "pm"]) {
+      const sessionSteps = d[sess] ?? [];
+      const sunscreenIndices = sessionSteps.flatMap((p, i) => p.category === "sunscreen" ? [i] : []);
+      if (sess === "am" && sunscreenIndices.length) {
+        amSpfOrder.push(sunscreenIndices.every((idx) => idx === sessionSteps.length - 1));
+      }
+      if (sess === "pm" && sunscreenIndices.length) pmSpfViolations.push(d.index);
       const classesHere = [];
       for (const step of (d[sess] ?? [])) {
         stepsTotal++;
@@ -116,6 +124,12 @@ for (const shelf of SHELVES) {
   checks["UV filter recognised"] = shelf.expect.recogniseUV ? { pass: recognisedActives.has("uv_filter"), got: recognisedActives.has("uv_filter") ? "uv_filter" : "MISSING" } : undefined;
   checks["rota schedules >=1 active"] = { pass: scheduledActives.size >= (shelf.expect.minScheduledActives ?? 1), got: [...scheduledActives].join(",") || "NONE SCHEDULED" };
   checks["steps carry reasons"] = { pass: stepsWithReason > 0, got: `${stepsWithReason}/${stepsTotal}` };
+  if (shelf.expect.basicOrderSpfLastAM) {
+    checks["sunscreen appears last in AM and not PM"] = {
+      pass: amSpfOrder.length > 0 && amSpfOrder.every(Boolean) && pmSpfViolations.length === 0,
+      got: `SPF AM sessions=${amSpfOrder.length}, order violations=${amSpfOrder.filter((x) => !x).length}, PM violations=${pmSpfViolations.length}`,
+    };
+  }
   if (shelf.expect.neverSameSession) {
     const violation = sessionActives.find((s) => shelf.expect.strongActives.filter((a) => s.classes.includes(a)).length >= 2);
     checks["strong actives never same session"] = { pass: scheduledActives.size > 0 && !violation, got: violation ? `BOTH in day${violation.day} ${violation.sess}` : (scheduledActives.size ? "ok" : "n/a (none scheduled)") };
