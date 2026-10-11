@@ -281,7 +281,9 @@ export interface ShelfObservation {
 
 export interface HeldProduct {
   productId: string;
-  reason: "safety_flag" | "context_hold" | "insufficient_evidence" | "not_analysable" | "finished";
+  /** `weekly_limit`: an eligible strong active that did not fit this week's
+   * strong-night budget / recovery spacing. Not a safety verdict. */
+  reason: "safety_flag" | "context_hold" | "insufficient_evidence" | "not_analysable" | "finished" | "weekly_limit";
 }
 
 export type Feeling = "calm" | "bit_irritated" | "very_irritated";
@@ -308,6 +310,12 @@ export interface RotaSnapshot {
   archivedAt?: ISODateTime | null;
   reflection?: Reflection | null;
   previousRotaId?: string | null;
+  /**
+   * Earlier revisions of THIS SAME week (oldest first), replaced because the
+   * Shelf changed mid-week. Their day records still belong to this week: a day
+   * completed before the replan stays completed, and the week shares one Rescue.
+   */
+  supersedes?: string[];
 }
 
 // ---------------------------------------------------------------------------
