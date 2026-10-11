@@ -73,6 +73,34 @@ const ACTIVE_BY_NAME: Record<string, ActiveClass> = {
   "potassium azeloyl diglycinate": "azelaic_acid",
   // benzoyl peroxide
   "benzoyl peroxide": "benzoyl_peroxide",
+  // PHA (polyhydroxy acids) — gentler exfoliating acids
+  "gluconolactone": "pha",
+  "glucono-delta-lactone": "pha",
+  "lactobionic acid": "pha",
+  "galactoarabinan": "pha",
+  // UV filters (organic + mineral). Recognition only — "contains a UV filter",
+  // never a mixing-risk or safety claim.
+  "ethylhexyl methoxycinnamate": "uv_filter",
+  "octinoxate": "uv_filter",
+  "butyl methoxydibenzoylmethane": "uv_filter",
+  "avobenzone": "uv_filter",
+  "benzophenone-3": "uv_filter",
+  "oxybenzone": "uv_filter",
+  "octocrylene": "uv_filter",
+  "homosalate": "uv_filter",
+  "ethylhexyl salicylate": "uv_filter",
+  "octisalate": "uv_filter",
+  "ethylhexyl triazone": "uv_filter",
+  "diethylamino hydroxybenzoyl hexyl benzoate": "uv_filter",
+  "bis-ethylhexyloxyphenol methoxyphenyl triazine": "uv_filter",
+  "methylene bis-benzotriazolyl tetramethylbutylphenol": "uv_filter",
+  "drometrizole trisiloxane": "uv_filter",
+  "terephthalylidene dicamphor sulfonic acid": "uv_filter",
+  "phenylbenzimidazole sulfonic acid": "uv_filter",
+  "titanium dioxide": "uv_filter",
+  "zinc oxide": "uv_filter",
+  "tris-biphenyl triazine": "uv_filter",
+  "polysilicone-15": "uv_filter",
 };
 
 /** Synonyms / common label spellings → canonical normalised name. */

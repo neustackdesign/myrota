@@ -21,6 +21,7 @@
     "lib/server/draft-rules.ts",
     "lib/server/extract-quota.ts",
     "lib/domain/types.ts",
+    "lib/domain/evidence.ts",
     "tests/backend/**/*.ts"
   ]
 }

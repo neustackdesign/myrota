@@ -56,7 +56,7 @@ const DECLARED_ACTIVES: Record<string, string> = {
 };
 
 export function parseLabelActives(visibleText: string): LabelActive[] {
-  const start = visibleText.search(/\\bactive\\s+ingredients?\\s*:?/i);
+  const start = visibleText.search(/\bactive\s+ingredients?\s*:?/i);
   if (start < 0) return [];
   const region = visibleText.slice(start, start + 900);
   const list: LabelActive[] = [];

@@ -1,5 +1,6 @@
 import { bindings } from "./cloudflare-env";
 import { getCatalogueRecord } from "./catalogue-store";
+import { normalizeInciName, detectActiveClass } from "./inci";
 
 const EVIDENCE = new Set(["verified", "user_confirmed", "partial", "unknown", "corrected"]);
 const CATEGORY = new Set(["cleanser", "toner", "serum", "treatment", "moisturiser", "sunscreen", "other"]);
@@ -116,8 +117,23 @@ export async function addShelfProduct(ownerUserId: string, input: unknown) {
     identityKey = record.product.identityKey;
   }
 
-  const ingredients = Array.isArray(draft.ingredients) ? draft.ingredients : [];
-  if (ingredients.length > 200) throw new Error("validation:ingredients");
+  const rawIngredients = Array.isArray(draft.ingredients) ? draft.ingredients : [];
+  if (rawIngredients.length > 200) throw new Error("validation:ingredients");
+  // SERVER-AUTHORITATIVE active recognition (Issue #19 invariant #3): re-derive
+  // normalized name + activeClass from each read/verified ingredient's source text.
+  // Never trust a client-supplied activeClass (a UI path strips it to null).
+  const ingredients = rawIngredients.map((raw) => {
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) return raw;
+    const i = raw as Record<string, unknown>;
+    const status = i.status;
+    const text = typeof i.text === "string" ? i.text : "";
+    if ((status === "read" || status === "verified") && text) {
+      const normalized = normalizeInciName(text);
+      const readable = normalized.length >= 2 && /[a-z]/.test(normalized);
+      return { ...i, normalized: readable ? normalized : null, activeClass: readable ? detectActiveClass(normalized) : null };
+    }
+    return i; // corrected / unreadable keep their (null) activeClass
+  });
   const serializedIngredients = JSON.stringify(ingredients);
   if (serializedIngredients.length > 64_000) throw new Error("validation:ingredients");
 
@@ -133,7 +149,9 @@ export async function addShelfProduct(ownerUserId: string, input: unknown) {
     if (typeof percentage !== "number" || !Number.isFinite(percentage) || percentage <= 0 || percentage > 100) {
       throw new Error("validation:label_actives");
     }
-    return { name, percentage };
+    // Classify the labelled active server-side so it can inform planning as a
+    // known-present fact (nomenclature only; never a completeness/safety claim).
+    return { name, percentage, activeClass: detectActiveClass(normalizeInciName(name)) };
   });
   const now = new Date().toISOString();
   const id = crypto.randomUUID();

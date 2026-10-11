@@ -38,15 +38,26 @@ export type ProductCategory =
 
 export type ProductFormat = "rinse_off" | "leave_on" | "unknown";
 
-/** Evidence-backed active classes. Only ever derived from verified or user-confirmed INCI. */
+/** Evidence-backed active classes. Recognition is nomenclature (CosIng-style), not
+ * a safety/clinical judgement — clinical rules about these still require review. */
 export type ActiveClass =
   | "retinoid"
   | "aha"
   | "bha"
+  | "pha"
   | "vitamin_c"
   | "niacinamide"
   | "azelaic_acid"
-  | "benzoyl_peroxide";
+  | "benzoyl_peroxide"
+  | "uv_filter";
+
+/** Strong actives that are not proactively combined in one session without a reviewed
+ * pair rule (conservative non-combination — makes NO compatibility claim). uv_filter
+ * and niacinamide are NOT strong actives for this purpose. */
+export const STRONG_ACTIVES: readonly ActiveClass[] = [
+  "retinoid", "aha", "bha", "pha", "benzoyl_peroxide",
+];
+export const isStrongActive = (c: ActiveClass): boolean => STRONG_ACTIVES.includes(c);
 
 export type SessionKind = "am" | "pm";
 /** Where the user chose to place a product we cannot analyse. */
@@ -59,6 +70,8 @@ export type IngredientStatus = "read" | "verified" | "unreadable" | "corrected";
 export interface LabelActive {
   name: string;
   percentage: number;
+  /** Class assigned by the server normalizer at ingestion (nomenclature only). */
+  activeClass?: ActiveClass | null;
 }
 
 export interface InciIngredient {
