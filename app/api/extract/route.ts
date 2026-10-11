@@ -124,6 +124,7 @@ async function handleImage(request: Request): Promise<Response> {
       identityKey: null,
       variant: front.variant,
       ingredients: [],
+      labelActives: front.labelActives,
       flags: [],
       provider: `workers_ai_vision:${model}:front_label_unverified`,
     };
