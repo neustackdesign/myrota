@@ -89,7 +89,7 @@ export async function addShelfProduct(ownerUserId: string, input: unknown) {
 
   const brand = str(draft.brand, 120);
   const name = str(draft.name, 180, true);
-  const category = str(draft.category, 40, true);
+  let category = str(draft.category, 40, true);
   const format = str(draft.format, 40, true);
   const identityStatus = str(draft.identityStatus, 40, true);
   const inciStatus = str(draft.inciStatus, 40, true);
@@ -136,6 +136,11 @@ export async function addShelfProduct(ownerUserId: string, input: unknown) {
   });
   const serializedIngredients = JSON.stringify(ingredients);
   if (serializedIngredients.length > 64_000) throw new Error("validation:ingredients");
+
+  // A product carrying UV filters IS a sunscreen for layering (last AM step), even
+  // if the source mis-categorised it. Source-backed, not a client claim.
+  const hasUvFilter = ingredients.some((i) => i && typeof i === "object" && (i as Record<string, unknown>).activeClass === "uv_filter");
+  if (hasUvFilter && category === "other") category = "sunscreen";
 
   // This is user-supplied *observational* Drug Facts evidence, not a verified
   // complete formula or a trusted ingredient/clinical-rules input.

@@ -22,6 +22,13 @@ interface RotaRow {
   created_at: string;
 }
 
+/** Order-independent set equality of product id lists. */
+function sameSet(a: string[], b: string[]): boolean {
+  if (a.length !== b.length) return false;
+  const s = new Set(a);
+  return b.every((x) => s.has(x));
+}
+
 export function requestTimeZone(request: Request) {
   const zone = request.headers.get("x-myrota-time-zone") || "UTC";
   if (zone.length > 90) throw new Error("validation:timezone");
@@ -66,14 +73,25 @@ export async function createRotaForUser(owner: string, input: unknown, timeZone:
     throw new Error("validation:context");
   }
   const db = (await bindings()).DB;
-  const existing = await activeRota(owner);
-  if (existing) return { rota: existing, mixNote: null };
+  // True idempotency: the same create_key always returns its own rota, even once archived.
+  const byKey = await db.prepare(
+    "SELECT snapshot_json FROM rota_snapshots WHERE owner_user_id = ? AND create_key = ?",
+  ).bind(owner, req.idempotencyKey).first<{ snapshot_json: string }>();
+  if (byKey) return { rota: JSON.parse(byKey.snapshot_json) as RotaSnapshot, mixNote: null };
+
   const shelf = (await listShelf(owner)) as ShelfProduct[];
-  if (!shelf.some((p) => !p.finishedAt)) throw new Error("validation:empty_shelf");
+  const activeIds = shelf.filter((p) => !p.finishedAt).map((p) => p.id);
+  if (!activeIds.length) throw new Error("validation:empty_shelf");
+
+  // Reuse the current rota ONLY while it still matches the shelf exactly; otherwise it
+  // is stale (a product was added/removed) and must be rebuilt from the live shelf.
+  const existing = await activeRota(owner);
+  if (existing && sameSet(existing.productIds, activeIds)) return { rota: existing, mixNote: null };
+
   const now = new Date().toISOString();
   const rota = buildRota({
     rotaId: crypto.randomUUID(),
-    weekNumber: 1,
+    weekNumber: existing?.weekNumber ?? 1,
     startDate: skincareDateAt(now, timeZone),
     timeZone,
     createdAt: now,
@@ -83,16 +101,23 @@ export async function createRotaForUser(owner: string, input: unknown, timeZone:
       retinoidExperience: context.retinoidExperience as "new" | "some" | "long" | undefined,
     },
     ruleSet: NO_CLINICAL_RULES,
+    previousRotaId: existing?.previousRotaId ?? null,
   });
   // Only the derived rota snapshot is stored; user safety/health context is transient.
+  // Replacing a stale rota is atomic: archive the old active one (kept, with its
+  // immutable day records) and insert the rebuilt one in a single batch.
+  const insert = db.prepare(
+    `INSERT INTO rota_snapshots
+     (id, owner_user_id, create_key, snapshot_json, timezone, start_date, archived_at, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, NULL, ?)`,
+  ).bind(rota.id, owner, req.idempotencyKey, JSON.stringify(rota), timeZone, rota.startDate, now);
+  const stmts = existing
+    ? [db.prepare("UPDATE rota_snapshots SET archived_at = ? WHERE owner_user_id = ? AND id = ? AND archived_at IS NULL").bind(now, owner, existing.id), insert]
+    : [insert];
   try {
-    await db.prepare(
-      `INSERT INTO rota_snapshots
-       (id, owner_user_id, create_key, snapshot_json, timezone, start_date, archived_at, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, NULL, ?)`,
-    ).bind(rota.id, owner, req.idempotencyKey, JSON.stringify(rota), timeZone, rota.startDate, now).run();
+    await db.batch(stmts);
   } catch {
-    // Handles repeat taps or simultaneous saves without inventing a second rota.
+    // Repeat taps / simultaneous saves: never invent a second rota.
     const current = await activeRota(owner);
     if (current) return { rota: current, mixNote: null };
     throw new Error("rota_insert_failed");

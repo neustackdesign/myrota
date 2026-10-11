@@ -246,6 +246,9 @@ export interface PlanContext {
 
 export type DayType = "treatment" | "recovery" | "daily" | "rest";
 
+/** Why a step is where it is, and the authority behind that decision (honest). */
+export type DecisionLabel = "reviewed_rule" | "product_directions" | "basic_order" | "provisional";
+
 export interface RotaStep {
   productId: string;
   displayName: string;
@@ -253,6 +256,10 @@ export interface RotaStep {
   /** False for unknown/partial/corrected products placed by the user: never paired or checked. */
   analysed: boolean;
   activeClass?: ActiveClass | null;
+  /** Source of authority for this placement. Shown to the user; never implies safety. */
+  label?: DecisionLabel;
+  /** Short plain-language explanation attached to a meaningful sequencing choice. */
+  reason?: string;
 }
 
 export interface RotaDayPlan {
