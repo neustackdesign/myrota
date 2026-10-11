@@ -88,7 +88,7 @@ for (const shelf of SHELVES) {
     if (!cat) { const s = await api(jar, "GET", `/api/catalogue?q=${encodeURIComponent(p.category)}`); cat = (s.json?.results || []).find((r) => r.catalogueId === p.catalogueId); }
     if (!cat) continue;
     for (const ing of cat.ingredients) if (ing.activeClass) recognisedActives.add(ing.activeClass);
-    const draft = { brand: cat.brand, name: cat.name, category: cat.category, format: cat.format === "unknown" ? "leave_on" : cat.format, identityStatus: "user_confirmed", inciStatus: cat.inciStatus ?? "partial", source: "search", catalogueId: cat.catalogueId, ingredients: cat.ingredients, placement: p.category === "sunscreen" ? "am" : "pm" };
+    const draft = { brand: cat.brand, name: cat.name, category: cat.category, format: cat.format ?? "unknown", identityStatus: "user_confirmed", inciStatus: cat.inciStatus ?? "partial", source: "search", catalogueId: cat.catalogueId, ingredients: cat.ingredients, placement: p.category === "sunscreen" ? "am" : "pm" };
     const add = await api(jar, "POST", "/api/shelf", { draft });
     added.push({ name: cat.name, category: cat.category, saved: add.status === 201 || add.json?.duplicate, actives: [...new Set(cat.ingredients.filter((i) => i.activeClass).map((i) => i.activeClass))] });
   }
