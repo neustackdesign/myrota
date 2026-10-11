@@ -13,7 +13,7 @@ import { classifyLabelActive, splitInciList, toInciIngredients } from "../../lib
 import { parseFrontLabel } from "../../lib/server/extract-front";
 import { buildRota, STRONG_NIGHTS_PER_WEEK } from "../../lib/domain/scheduler";
 import { computeStreak, listMisses, qualifies, applyRescue } from "../../lib/domain/records";
-import { recordsForRota, reviseRota } from "../../lib/domain/week";
+import { recordsForRota, reviseRota, startNextWeek } from "../../lib/domain/week";
 import { isStrongActive } from "../../lib/domain/types";
 import type { ActiveClass, DayRecord, RotaSnapshot, RuleSet, ShelfProduct } from "../../lib/domain/types";
 
@@ -158,6 +158,23 @@ test("F · retinoid + exfoliant alternate with recovery nights between them (≤
   if (exfoliantNight(r, 6)) assert.ok(!strongNight(next, 0));
   if (strongNight(r, 6)) assert.ok(!exfoliantNight(next, 0));
   assertRecoverySpacing(next);
+});
+
+test("F2 · week 2 after F's week 1 (retinoid on d6) does not open with a retinoid or exfoliant night", () => {
+  const products = [CLEANSER, RETINOL, GLYCOLIC, MOISTURISER];
+  const w1 = rota(products);
+  assert.ok(pmClasses(w1, 6).includes("retinoid"), `precondition: week 1 d6 is a retinoid night, got ${pmClasses(w1, 6)}`);
+  const noStrongD0 = (w2: RotaSnapshot, via: string) =>
+    assert.ok(!pmClasses(w2, 0).some((c) => ["retinoid", "aha", "bha", "pha"].includes(c)), `${via}: week 2 d0 PM is ${pmClasses(w2, 0)}`);
+  // Server path (lib/server/rota-store.ts): previousFinalNight from week 1's d6 PM.
+  noStrongD0(rota(products, { rotaId: "rota-2", weekNumber: 2, startDate: "2026-10-19", previousRotaId: w1.id, previousFinalNight: pmClasses(w1, 6) }), "buildRota");
+  // Domain path: startNextWeek must carry week 1's final night itself.
+  const started = startNextWeek({ rotas: [w1], currentRotaId: w1.id, appliedKeys: [] }, {
+    idempotencyKey: "w2", now: "2026-10-19T08:00:00.000Z", newRotaId: "rota-2", startDate: "2026-10-19", products,
+    build: { context: {}, ruleSet: LIVE_RULES },
+  });
+  assert.equal(started.status, "started");
+  noStrongD0(started.rota, "startNextWeek");
 });
 
 // --- G: replan continuity ---------------------------------------------------
