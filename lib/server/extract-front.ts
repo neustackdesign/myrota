@@ -1,4 +1,4 @@
-import type { ProductCategory } from "../domain/types";
+import type { ProductCategory, LabelActive } from "../domain/types";
 
 /**
  * Interprets a front-label OCR response. Nothing here makes a verified SKU or
@@ -11,6 +11,7 @@ export interface FrontIdentity {
   category: ProductCategory | null;
   variant: string | null;
   visibleText: string;
+  labelActives: LabelActive[];
 }
 
 const CATEGORIES = new Set<ProductCategory>([
@@ -26,6 +27,49 @@ function corroborates(value: string, visible: string, minimum = 1): boolean {
   // Require *all* meaningful words for short brands, most for product names.
   const hit = words.filter((w) => visibleWords.has(w)).length;
   return hit >= (words.length <= 2 ? words.length : Math.ceil(words.length * 0.7));
+}
+
+/**
+ * Parse ONLY the visible Drug Facts "Active ingredients" declarations.
+ * A limited dictionary prevents marketing claims and unrecognised chemistry
+ * from being silently treated as labelled drug actives. Names and percentages
+ * must BOTH occur in the transcribed text, near an Active ingredients heading.
+ * A matching list is NEVER considered a complete inactive/INCI declaration.
+ */
+const DECLARED_ACTIVES: Record<string, string> = {
+  avobenzone: "Avobenzone",
+  homosalate: "Homosalate",
+  octisalate: "Octisalate",
+  octocrylene: "Octocrylene",
+  octinoxate: "Octinoxate",
+  oxybenzone: "Oxybenzone",
+  "zinc oxide": "Zinc Oxide",
+  "titanium dioxide": "Titanium Dioxide",
+  ensulizole: "Ensulizole",
+  meradimate: "Meradimate",
+  "padimate o": "Padimate O",
+  sulisobenzone: "Sulisobenzone",
+  ecamsule: "Ecamsule",
+  "benzoyl peroxide": "Benzoyl Peroxide",
+  "salicylic acid": "Salicylic Acid",
+  sulfur: "Sulfur",
+};
+
+export function parseLabelActives(visibleText: string): LabelActive[] {
+  const start = visibleText.search(/\\bactive\\s+ingredients?\\s*:?/i);
+  if (start < 0) return [];
+  const region = visibleText.slice(start, start + 900);
+  const list: LabelActive[] = [];
+  for (const [lowerName, labelName] of Object.entries(DECLARED_ACTIVES)) {
+    const escaped = lowerName.replace(/[.*+?^${}()|[\\]\\]/g, "\\export function parseFrontLabel(raw: string): FrontIdentity | null {");
+    const match = new RegExp(`\\b${escaped}\\s*[:\\-]?\\s*(\\d{1,2}(?:\\.\\d+)?)\\s*%`, "i").exec(region);
+    if (!match) continue;
+    const percentage = Number(match[1]);
+    if (percentage > 0 && percentage <= 100 && Number.isFinite(percentage)) {
+      list.push({ name: labelName, percentage });
+    }
+  }
+  return list.slice(0, 12);
 }
 
 export function parseFrontLabel(raw: string): FrontIdentity | null {
@@ -52,5 +96,5 @@ export function parseFrontLabel(raw: string): FrontIdentity | null {
     && corroborates(category, visibleText) ? category as ProductCategory : null;
   const variant = variantValue && corroborates(variantValue, visibleText) ? variantValue : null;
   if (!name) return null;
-  return { brand, name, category: safeCategory, variant, visibleText };
+  return { brand, name, category: safeCategory, variant, visibleText, labelActives: parseLabelActives(visibleText) };
 }
