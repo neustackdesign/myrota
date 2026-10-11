@@ -101,7 +101,7 @@ await scenario("A pasted INCI → retinoid scheduled PM", async () => {
 });
 
 await scenario("B Shiseido photo → real OCR → UV filters → SPF last", async () => {
-  if (!IMAGE) return { "real photo": { pass: null, got: "SKIPPED — set SHISEIDO_IMAGE to a private photo path" } };
+  if (!IMAGE) return { "real Shiseido photo required": { pass: false, got: "Provide SHISEIDO_IMAGE; missing image is a FAILED release gate, not a pass or silent skip." } };
   const j = await session();
   const cfg = (await call(j, "GET", "/api/config")).json;
   const form = new FormData();
@@ -112,20 +112,28 @@ await scenario("B Shiseido photo → real OCR → UV filters → SPF last", asyn
   const c = ex.json?.candidate;
   const real = typeof c?.provider === "string" && c.provider.startsWith("workers_ai_vision:");
   const evidence = (c?.ingredients?.length ?? 0) + (c?.labelActives?.length ?? 0);
+  const EXPECTED_UV = new Map([["avobenzone", 2.5], ["homosalate", 10], ["octisalate", 5], ["octocrylene", 10]]);
+  const actualUV = new Map((c?.labelActives ?? []).map((a) => [String(a.name).toLowerCase(), a.percentage]));
+  const exactUV = [...EXPECTED_UV].every(([name, pct]) => actualUV.get(name) === pct);
   const out = {
     "photoReading capability": { pass: cfg?.capabilities?.photoReading === true, got: JSON.stringify(cfg?.capabilities) },
     "processed by Workers AI vision": { pass: real, got: `${ex.status} ${c?.provider ?? ex.json?.problem ?? ex.json?.error}` },
-    "usable ingredient evidence": { pass: real && evidence > 0, got: `ingredients=${c?.ingredients?.length ?? 0} labelActives=${(c?.labelActives ?? []).map((a) => `${a.name} ${a.percentage}%`).join(", ")}` },
+    "exact four Shiseido UV actives from the image": { pass: real && exactUV, got: `ingredients=${c?.ingredients?.length ?? 0} labelActives=${(c?.labelActives ?? []).map((a) => `${a.name} ${a.percentage}%`).join(", ")}` },
+    "product identity read, not substituted": { pass: /shiseido/i.test(c?.brand ?? "") && /clear sunscreen stick/i.test(c?.name ?? ""), got: `${c?.brand ?? "?"} — ${c?.name ?? "?"}` },
+    "incomplete formula is not verified": { pass: c?.inciStatus !== "verified" && c?.inciStatus !== "user_confirmed", got: c?.inciStatus ?? "missing" },
   };
-  if (!real || !evidence) return out;
+  if (!real || !evidence || !exactUV) return out;
   await basicProduct(j, "Gentle cleanser", "cleanser");
   await basicProduct(j, "Moisturiser", "moisturiser");
-  const saved = await save(j, { ...c, name: c.name || "Clear Sunscreen Stick", category: c.category ?? "sunscreen", source: "scan" });
+  const saved = await save(j, { ...c, source: "scan" });
   const shelf = (await call(j, "GET", "/api/shelf")).json;
   const r = await buildRota(j);
-  out["persisted after refresh"] = { pass: JSON.stringify(shelf).includes(saved?.id ?? "§"), got: saved?.id ?? "?" };
-  out["UV actives recognised"] = { pass: classes(r).has("uv_filter") || r.days.every((d) => d.am.at(-1)?.category === "sunscreen"), got: [...classes(r)].join(",") };
-  out["SPF last AM"] = { pass: spfLast(r), got: "" };
+  const persisted = shelf?.products?.find((p) => p.id === saved?.id);
+  const storedUV = new Map((persisted?.labelActives ?? []).map((a) => [String(a.name).toLowerCase(), a.percentage]));
+  const hasAllUV = [...EXPECTED_UV].every(([name, pct]) => storedUV.get(name) === pct);
+  out["all four actives persisted after fetch"] = { pass: !!persisted && hasAllUV, got: `persisted=${!!persisted} uv=${(persisted?.labelActives ?? []).length}` };
+  out["saved full-INCI status still incomplete"] = { pass: !!persisted && !["verified", "user_confirmed"].includes(persisted.inciStatus), got: persisted?.inciStatus ?? "missing" };
+  out["SPF scheduled last every AM, never PM"] = { pass: r.days.every((d) => d.am.at(-1)?.productId === saved?.id && !d.pm.some((p) => p.productId === saved?.id)), got: r.days.map((d) => d.am.at(-1)?.category ?? "none").join(",") };
   return out;
 });
 
