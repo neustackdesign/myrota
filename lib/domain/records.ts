@@ -116,7 +116,7 @@ export function rescueExpiresAt(date: SkincareDate, timeZone: IanaTimeZone): Dat
  */
 export function listMisses(
   records: DayRecord[],
-  rotas: Pick<RotaSnapshot, "id" | "rescueUsedFor">[],
+  rotas: Pick<RotaSnapshot, "id" | "rescueUsedFor" | "supersedes">[],
   now: Date | ISODateTime,
 ): MissedDay[] {
   const nowMs = new Date(now).getTime();
@@ -126,7 +126,9 @@ export function listMisses(
     const status = dayStatus(record, today);
     if (status !== "missed" && status !== "rescued") continue;
     const expiresAt = rescueExpiresAt(record.skincareDate, record.timeZone);
-    const rota = rotas.find((r) => r.id === record.rotaId);
+    // A mid-week replan supersedes the week's earlier revision; the latest revision
+    // carries the week's single Rescue.
+    const rota = rotas.find((r) => r.supersedes?.includes(record.rotaId)) ?? rotas.find((r) => r.id === record.rotaId);
     let miss: MissStatus;
     if (status === "rescued") miss = "rescued";
     else if (record.rescueDeclinedAt) miss = "declined";
@@ -160,7 +162,7 @@ export function applyRescue(
   now: Date | ISODateTime,
   idempotencyKey: string,
 ): RescueResult {
-  if (rota.id !== record.rotaId) return { ok: false, error: "unknown_rota" };
+  if (rota.id !== record.rotaId && !rota.supersedes?.includes(record.rotaId)) return { ok: false, error: "unknown_rota" };
   if (record.rescue) {
     return { ok: true, record, rota, duplicate: true };
   }
@@ -226,7 +228,7 @@ function runEndingAt(
 
 export interface StreakInput {
   records: DayRecord[];
-  rotas: Pick<RotaSnapshot, "id" | "rescueUsedFor">[];
+  rotas: Pick<RotaSnapshot, "id" | "rescueUsedFor" | "supersedes">[];
   now: Date | ISODateTime;
   timeZone: IanaTimeZone;
 }

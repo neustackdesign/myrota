@@ -6,7 +6,7 @@
 ## Inputs needed from Cloudflare owner
 1. Cloudflare account authenticated in a supported browser or Wrangler CLI on user's own machine. This chat has GitHub and Supabase connectors but **no Cloudflare account action**. Never paste API secrets into chat or GitHub.
 2. Wrangler login: `npx wrangler login` on local trusted development machine; user completes OAuth.
-3. Database created: `npx wrangler d1 create myrota`. Record returned UUID as environment binding in `wrangler.jsonc` / deploy config (UUID is non-secret, but do not assume one).
+3. Database created in **Western Europe**: `npx wrangler d1 create myrota --location=weur`. This is intentional for the initial Lagos + Dubai user mix: D1 has no Africa/Middle East primary location, and writes always reach the primary. Record returned UUID as environment binding in `wrangler.jsonc` / deploy config (UUID is non-secret, but do not assume one).
 4. Google OAuth client dedicated to **myrota**, approved redirect URIs for workers.dev and final domain; credentials via Wrangler secrets only.
 5. Better Auth secure random secret via `npx wrangler secret put BETTER_AUTH_SECRET`, separately generated; no committed values.
 6. Brevo verified myrota sending domain, transactional API key secret via Wrangler. Google first, email OTP second, count resends and 200/day warning. Respect total sends across shared Brevo account.
@@ -20,7 +20,7 @@
 - Keep `next build` and normal dev available. If Vinext fails, capture reproducible problem before evaluating Cloudflare OpenNext fallback.
 
 ### B. D1
-- `npx wrangler d1 create myrota` requires an authenticated Cloudflare account. Unique DB per app, no shared data.
+- `npx wrangler d1 create myrota --location=weur` requires an authenticated Cloudflare account. Unique DB per app, no shared data. Do not accept auto-selected APAC merely because provisioning happened from Dubai.
 - Drizzle SQLite schema + committed SQL migration. Apply migrations against local D1 first, then remote with an explicit target (never assume migrations were run).
 - Test unique product IDs, shelf ownership, immutable evidence versioning, invite token uniqueness, day idempotency and auth tables.
 

@@ -47,3 +47,6 @@ Workers Free CPU 10 ms/request is the risk; D1 limits 5M reads/day, 100k writes/
 
 ## Expo path
 Reuse `lib/domain`, API contracts, event names and backend. Native clients implement their own UI/platform notification and authenticated HTTP session handling. Don't create monorepo prematurely.
+
+## D1 location decision
+Cloudflare currently offers no Africa or Middle East D1 primary region. For the initial Lagos + Dubai cohort, create the write primary with `--location=weur`; APAC auto-selection from a Dubai provisioning machine is not the product decision. Global read replication can later reduce read latency, but only when enabled and used through the D1 Sessions API; it does not move the write primary.

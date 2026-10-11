@@ -2,7 +2,7 @@ import { currentUser } from "@/lib/server/session";
 import { rotaById, saveDayRecordWithRevision } from "@/lib/server/rota-store";
 import { bindings } from "@/lib/server/cloudflare-env";
 import { applyCompletion } from "@/lib/domain/records";
-import { recordsForRota } from "@/lib/domain/week";
+import { recordsForRota, weekRotaIds } from "@/lib/domain/week";
 import type { DayRecord, CompletionSession } from "@/lib/domain/types";
 
 interface RecordRow { record_json: string; revision: number }
@@ -24,22 +24,32 @@ export async function POST(request: Request) {
     const planned = recordsForRota(rota, []).find((r) => r.skincareDate === body.skincareDate);
     if (!planned) return Response.json({ error: "Date is not in this rota" }, { status: 422 });
     const db = (await bindings()).DB;
+    // After a mid-week replan, a day already recorded under the week's earlier
+    // revision keeps that record: AM before and PM after the replan must land in
+    // ONE record, or neither half qualifies the day.
+    let recordRotaId = rota.id;
+    for (const id of weekRotaIds(rota).slice(1)) {
+      const prior = await db.prepare(
+        "SELECT rota_id FROM day_records WHERE owner_user_id = ? AND rota_id = ? AND skincare_date = ?",
+      ).bind(user.id, id, body.skincareDate).first<{ rota_id: string }>();
+      if (prior) { recordRotaId = id; break; }
+    }
     // A unique owner/rota/day constraint prevents multiple records for one day.
     await db.prepare(
       `INSERT OR IGNORE INTO day_records
        (owner_user_id, rota_id, skincare_date, record_json, revision, updated_at)
        VALUES (?, ?, ?, ?, 0, ?)`,
-    ).bind(user.id, rota.id, body.skincareDate, JSON.stringify(planned), new Date().toISOString()).run();
+    ).bind(user.id, recordRotaId, body.skincareDate, JSON.stringify({ ...planned, rotaId: recordRotaId }), new Date().toISOString()).run();
 
     for (let attempt = 0; attempt < 5; attempt += 1) {
       const row = await db.prepare(
         "SELECT record_json, revision FROM day_records WHERE owner_user_id = ? AND rota_id = ? AND skincare_date = ?",
-      ).bind(user.id, rota.id, body.skincareDate).first<RecordRow>();
+      ).bind(user.id, recordRotaId, body.skincareDate).first<RecordRow>();
       if (!row) throw new Error("missing_record");
       const record = JSON.parse(row.record_json) as DayRecord;
       const outcome = applyCompletion(record, {
         id: crypto.randomUUID(),
-        rotaId: rota.id,
+        rotaId: recordRotaId,
         skincareDate: body.skincareDate,
         session: body.session!,
         occurredAt: new Date().toISOString(),

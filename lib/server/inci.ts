@@ -154,3 +154,11 @@ export function splitInciList(blob: string, max = 200): string[] {
     .filter(Boolean)
     .slice(0, max);
 }
+
+/**
+ * Classify individually printed (Drug Facts) actives server-side. Nomenclature
+ * only: a known-present fact, never a completeness or safety claim.
+ */
+export function classifyLabelActive(name: string): ActiveClass | null {
+  return detectActiveClass(normalizeInciName(name));
+}

@@ -1,6 +1,6 @@
 import { bindings } from "./cloudflare-env";
 import { getCatalogueRecord } from "./catalogue-store";
-import { normalizeInciName, detectActiveClass } from "./inci";
+import { normalizeInciName, detectActiveClass, classifyLabelActive } from "./inci";
 
 const EVIDENCE = new Set(["verified", "user_confirmed", "partial", "unknown", "corrected"]);
 const CATEGORY = new Set(["cleanser", "toner", "serum", "treatment", "moisturiser", "sunscreen", "other"]);
@@ -156,8 +156,10 @@ export async function addShelfProduct(ownerUserId: string, input: unknown) {
     }
     // Classify the labelled active server-side so it can inform planning as a
     // known-present fact (nomenclature only; never a completeness/safety claim).
-    return { name, percentage, activeClass: detectActiveClass(normalizeInciName(name)) };
+    return { name, percentage, activeClass: classifyLabelActive(name) };
   });
+  // Drug Facts UV filters also make an uncategorised product a sunscreen for layering.
+  if (category === "other" && labelActives.some((a) => a.activeClass === "uv_filter")) category = "sunscreen";
   const now = new Date().toISOString();
   const id = crypto.randomUUID();
   const evidence = JSON.stringify({
