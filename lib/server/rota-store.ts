@@ -2,7 +2,8 @@ import { bindings } from "./cloudflare-env";
 import { listShelf } from "./shelf-store";
 import { assertTimeZone, skincareDateAt } from "@/lib/domain/skincare-day";
 import { buildRota } from "@/lib/domain/scheduler";
-import type { DayRecord, RotaSnapshot, RuleSet, ShelfProduct } from "@/lib/domain/types";
+import { reviseRota, weekRotaIds } from "@/lib/domain/week";
+import type { ActiveClass, DayRecord, RotaSnapshot, RuleSet, ShelfProduct } from "@/lib/domain/types";
 
 const NO_CLINICAL_RULES: RuleSet = {
   version: "pending-reviewed-rules-v1",
@@ -89,19 +90,35 @@ export async function createRotaForUser(owner: string, input: unknown, timeZone:
   if (existing && sameSet(existing.productIds, activeIds)) return { rota: existing, mixNote: null };
 
   const now = new Date().toISOString();
-  const rota = buildRota({
-    rotaId: crypto.randomUUID(),
-    weekNumber: existing?.weekNumber ?? 1,
+  const planContext = {
+    care: context.care as "none" | "prefer_not_to_say" | "pregnant_or_breastfeeding" | "prescription_treatment" | undefined,
+    retinoidExperience: context.retinoidExperience as "new" | "some" | "long" | undefined,
+  };
+  const rotaId = crypto.randomUUID();
+  // Shelf changed mid-week → revise THIS week: completed/past days, the streak and
+  // the week's Rescue are kept (lib/domain/week.ts reviseRota). Only a finished
+  // week (or no rota yet) starts a new one.
+  const revised = existing
+    ? reviseRota(existing, {
+        newRotaId: rotaId, now, products: shelf,
+        records: await recordsForUser(owner, weekRotaIds(existing)),
+        build: { context: planContext, ruleSet: NO_CLINICAL_RULES },
+      })
+    : null;
+  const previousFinalNight: ActiveClass[] | undefined = existing
+    ? existing.days[6].pm.flatMap((s) => (s.activeClass ? [s.activeClass] : []))
+    : undefined;
+  const rota = revised ?? buildRota({
+    rotaId,
+    weekNumber: existing ? existing.weekNumber + 1 : 1,
     startDate: skincareDateAt(now, timeZone),
     timeZone,
     createdAt: now,
     products: shelf,
-    context: {
-      care: context.care as "none" | "prefer_not_to_say" | "pregnant_or_breastfeeding" | "prescription_treatment" | undefined,
-      retinoidExperience: context.retinoidExperience as "new" | "some" | "long" | undefined,
-    },
+    context: planContext,
     ruleSet: NO_CLINICAL_RULES,
-    previousRotaId: existing?.previousRotaId ?? null,
+    previousRotaId: existing?.id ?? null,
+    previousFinalNight,
   });
   // Only the derived rota snapshot is stored; user safety/health context is transient.
   // Replacing a stale rota is atomic: archive the old active one (kept, with its
@@ -129,7 +146,7 @@ export async function recordsForUser(owner: string, rotaIds: string[]): Promise<
   if (!rotaIds.length) return [];
   const db = (await bindings()).DB;
   const all: DayRecord[] = [];
-  for (const id of rotaIds.slice(-2)) {
+  for (const id of rotaIds.slice(-16)) {
     const rows = await db.prepare(
       "SELECT record_json FROM day_records WHERE owner_user_id = ? AND rota_id = ? ORDER BY skincare_date",
     ).bind(owner, id).all<{ record_json: string }>();

@@ -1,6 +1,6 @@
-import { buildRota, type BuildRotaInput } from "./scheduler";
+import { buildRota, buildShelfCheck, type BuildRotaInput } from "./scheduler";
 import { addDays, compareDates, skincareDateAt } from "./skincare-day";
-import { dayStatus, isEarned } from "./records";
+import { dayStatus, isEarned, qualifies } from "./records";
 import type { DayRecord, Feeling, ISODateTime, RotaSnapshot, ShelfProduct, SkincareDate } from "./types";
 
 /**
@@ -14,10 +14,21 @@ import type { DayRecord, Feeling, ISODateTime, RotaSnapshot, ShelfProduct, Skinc
  *   rota it describes and NEVER changes frequency on its own.
  */
 
-/** Fill in records for every rota day so the UI never infers status from absence. */
+/** This rota plus the earlier revisions of the same week it replaced. */
+export function weekRotaIds(rota: Pick<RotaSnapshot, "id" | "supersedes">): string[] {
+  return [rota.id, ...(rota.supersedes ?? [])];
+}
+
+/**
+ * Fill in records for every rota day so the UI never infers status from absence.
+ * A day recorded under an earlier revision of this week (before a mid-week
+ * replan) still belongs to this week; a real completion wins over an empty record.
+ */
 export function recordsForRota(rota: RotaSnapshot, records: DayRecord[]): DayRecord[] {
+  const ids = weekRotaIds(rota);
   return rota.days.map((day) => {
-    const found = records.find((r) => r.rotaId === rota.id && r.skincareDate === day.skincareDate);
+    const matches = records.filter((r) => ids.includes(r.rotaId) && r.skincareDate === day.skincareDate);
+    const found = matches.find(qualifies) ?? matches.find((r) => r.rotaId === rota.id) ?? matches[0];
     return (
       found ?? {
         rotaId: rota.id,
@@ -120,6 +131,61 @@ export function startNextWeek(
       appliedKeys: [...history.appliedKeys, args.idempotencyKey],
     },
   };
+}
+
+/**
+ * Replan THIS week after the Shelf changed (Issue #19 replan continuity).
+ *
+ * The week keeps its identity: same start date, week number, previous rota and
+ * Rescue. Days already past, and any day with recorded activity, keep the plan
+ * they were followed under, so a completed day stays completed and is never
+ * re-planned. Only the remaining days are rebuilt from the current Shelf, with
+ * the last kept night feeding recovery spacing. Day records are never touched;
+ * the replaced revision's id is listed in `supersedes` so its records still count.
+ * Returns null once the week is over: start the next week instead.
+ */
+export function reviseRota(
+  current: RotaSnapshot,
+  args: {
+    newRotaId: string;
+    now: ISODateTime;
+    products: ShelfProduct[];
+    records: DayRecord[];
+    build: Omit<BuildRotaInput, "rotaId" | "weekNumber" | "startDate" | "timeZone" | "createdAt" | "products" | "previousRotaId" | "previousFinalNight">;
+  },
+): RotaSnapshot | null {
+  const today = skincareDateAt(args.now, current.timeZone);
+  if (compareDates(today, current.days[6].skincareDate) > 0) return null;
+  const recorded = recordsForRota(current, args.records);
+  const frozen = current.days.map((d, i) =>
+    compareDates(d.skincareDate, today) < 0 || recorded[i].events.length > 0 || !!recorded[i].rescue || !!recorded[i].rescueDeclinedAt);
+  // Kept days are a prefix (past days, and today once anything was recorded).
+  const keep = frozen.lastIndexOf(true) + 1;
+  const lastKept = keep > 0 ? current.days[keep - 1] : null;
+  const rebuilt = buildRota({
+    ...args.build,
+    rotaId: args.newRotaId,
+    weekNumber: current.weekNumber,
+    startDate: current.days[Math.min(keep, 6)].skincareDate,
+    timeZone: current.timeZone,
+    createdAt: args.now,
+    products: args.products,
+    previousRotaId: current.previousRotaId ?? null,
+    previousFinalNight: lastKept ? lastKept.pm.flatMap((s) => (s.activeClass ? [s.activeClass] : [])) : undefined,
+  });
+  const days = current.days.map((d, i) =>
+    i < keep ? d : { ...rebuilt.days[i - keep], index: i, skincareDate: d.skincareDate });
+  const revised: RotaSnapshot = {
+    ...rebuilt,
+    startDate: current.startDate,
+    days,
+    rescueUsedFor: current.rescueUsedFor ?? null,
+    reflection: current.reflection ?? null,
+    archivedAt: null,
+    supersedes: [...(current.supersedes ?? []), current.id],
+  };
+  revised.shelfCheck = buildShelfCheck(revised, args.products);
+  return revised;
 }
 
 /** Default start for the next rota: the day after the previous rota's last day, or today if later. */
