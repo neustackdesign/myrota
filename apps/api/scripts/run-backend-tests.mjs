@@ -4,9 +4,12 @@
 import { spawnSync } from "node:child_process";
 import { readdirSync, writeFileSync, copyFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
+import { createRequire } from "node:module";
 
+// Resolve tsc wherever it lives — local node_modules standalone, or hoisted to the workspace root.
+const tscBin = createRequire(import.meta.url).resolve("typescript/bin/tsc");
 const out = ".backend-test";
-const tsc = spawnSync(process.execPath, ["node_modules/typescript/bin/tsc", "-p", "tsconfig.backend-test.json"], { stdio: "inherit" });
+const tsc = spawnSync(process.execPath, [tscBin, "-p", "tsconfig.backend-test.json"], { stdio: "inherit" });
 if (tsc.status !== 0) process.exit(tsc.status ?? 1);
 
 writeFileSync(join(out, "package.json"), JSON.stringify({ type: "commonjs" }));
