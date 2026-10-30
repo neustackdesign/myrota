@@ -81,20 +81,57 @@ All configs are app-relative (`@/*`→`./*`, no `../` escapes) — both apps bui
 
 ## 5. Validation (step 4) — results
 
-_Appended after install/build/test runs; a successful build is NOT end-to-end acceptance._
+_A successful build is NOT end-to-end acceptance._
 
 | Gate | Result |
 |------|--------|
-| `npm install` (workspace) | pending |
-| `apps/web` `next build` | pending |
-| `apps/api` `build:vinext` | pending |
-| `test:domain` (pure domain) | pending |
-| `test:backend` | pending |
-| staging browser journey (test Turnstile key) | pending |
-| real iPhone/Android | OUTSTANDING (no device access) |
+| `npm install` (workspace) | ✅ clean (278 pkgs) after pinning the engine toolchain |
+| `apps/web` `next build` | ✅ compiled; routes `/`, `/app/[[...path]]`, `/about`, `/contact`, manifest, og-image |
+| `apps/api` `build:api` (vinext) | ✅ Cloudflare Worker bundle emitted (`.cloudflare/output/.../ssr/index.js`); only non-fatal vinext warnings |
+| `test:domain` web | ✅ 27/27 (incl. P0 enrich-ingredients provenance tests) |
+| `test:domain` api | ✅ 18/18 |
+| `test:backend` api | ✅ 48/48 (INCI, catalogue, extract validators) |
+| isolated staging (FE source ↔ staging Worker/D1) | ✅ `myrota-staging-pilot` `/api/config` = staging signature |
+| **deploy monorepo `apps/web` to staging** | ⛔ GATED — see §6 (needs Vercel Root Directory = `apps/web`, which touches the shared prod project) |
+| **staging browser save/persistence journey** | ⏳ OUTSTANDING — delegated to a real user (now friction-free: staging test Turnstile key auto-passes) |
+| real iPhone/Android | ⏳ OUTSTANDING (no device access) |
 
-## 6. Gated / approval-required (step 5)
+Note: the live staging alias serves the FE from the **standalone** `feat/dual-label-scan-ui` build, whose
+source is identical to `apps/web`. Validating the **monorepo-structured** artifact on staging is the §6 gated step.
 
+## 7. Outstanding-PR reconciliation ledger
+
+The 15 open PRs are a single **stacked chain** (each based on the previous branch), main → … →
+`feat/dual-label-scan-ui` → #16/#18. Their combined content is exactly what `consolidate/canonical`
+already contains (verified FE tip + engine backend tip). They are therefore **superseded by this branch**,
+not to be merged individually (individual merge = the old fragmented path).
+
+- **Supersedes (close as superseded once `consolidate/canonical` is accepted):** #2, #3, #4, #6, #8, #9, #10, #11, #12, #13, #14, #15, #16 — all rolled into `apps/web`/`apps/api`.
+- **Review for unique value before closing:** #17, #18 (`fix/uv-drug-label-*` — sunscreen Drug Facts / declared-actives evidence). These diverged from the engine line; confirm their fix is present on `fix/next-week-recovery-spacing` or cherry-pick, then close.
+
+Closing PRs and deleting their branches are **GitHub state changes → GATED** (see §6). This ledger records intent only.
+
+## 8. Development instructions (monorepo)
+
+```
+npm install                         # once, at repo root (workspaces)
+npm run build:web                   # Next build of apps/web (landing + PWA)
+npm run build:api                   # vinext/Cloudflare Worker build of apps/api
+npm run typecheck                   # both apps
+npm run test:domain                 # pure-domain suite (apps/api)
+npm run test:backend                # server-logic suite (apps/api)
+npm run deploy:staging              # guarded staging Worker deploy (apps/api)
+```
+
+Staging FE is deployed from `apps/web` with a build-time `MYROTA_API_ORIGIN=https://myrota-staging.neustackdesign.workers.dev`
+so `/api/*` proxies to the isolated staging Worker/D1. Production (`myrota-eight` / Worker `myrota` / D1 `7992c70c`) is frozen.
+
+## 6. Gated / approval-required
+
+- **Deploy monorepo `apps/web` to staging.** Needs the Vercel project's **Root Directory = `apps/web`**,
+  which changes how *every* deploy of the shared `myrota` project (prod included) builds → production-affecting.
+  Recommended instead: a dedicated Vercel project for the monorepo, or a one-off `apps/web`-root deploy, aliased
+  to a new staging host — leaving the current prod project untouched. Flagged for approval before applying.
 - Production cutover (new canonical `main`, prod Worker/alias changes) — **gated on acceptance + explicit approval.**
-- Deleting branches/worktrees/stale Vercel deployments — **gated** (reversible plan kept).
+- Closing superseded PRs (§7) and deleting branches/worktrees/stale Vercel deployments — **gated** (reversible plan kept).
 - Any destructive D1 operation — **not permitted** without explicit approval.
