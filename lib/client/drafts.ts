@@ -55,6 +55,23 @@ export function draftFromCandidate(c: ExtractionCandidate, method: "scan" | "gal
 }
 
 /**
+ * Attach a freshly read INCI list (from a back-label photo OR pasted/typed
+ * text) to a product whose identity the user has already reviewed. The
+ * confirmed front identity (name/brand/category/format/identityKey) is kept;
+ * only the ingredients and their provenance move. Never promotes to verified:
+ * an enriched list is `partial` at most, confirmed later by the user.
+ */
+export function mergeEnrichedIngredients(base: ExtractionCandidate, read: ExtractionCandidate): ExtractionCandidate {
+  return {
+    ...base,
+    extractionId: read.extractionId,
+    inciStatus: "partial",
+    ingredients: read.ingredients,
+    provider: read.provider,
+  };
+}
+
+/**
  * Context questions are asked only when they can change the plan: the
  * retinoid question only with an evidence-backed retinoid on the shelf; the
  * care question only with any evidence-backed active. Never inferred.

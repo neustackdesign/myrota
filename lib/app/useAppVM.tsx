@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ClientConfigResponse, ExtractionCandidate, MeResponse, MixResponse, MixSubjectRef, TodayResponse } from "../api/contract";
 import { ApiError, apiErrorMessage } from "../api/repository";
-import { contextNeeds, draftForUnknown, draftFromCatalogue, PROBLEM_TEXT } from "../client/drafts";
+import { contextNeeds, draftForUnknown, draftFromCatalogue, mergeEnrichedIngredients, PROBLEM_TEXT } from "../client/drafts";
 import { canPromptInstall, detectPlatform, isStandalone, promptInstall } from "../client/pwa";
 import { fitImageForUpload } from "../client/image";
 import { newIdempotencyKey, useRepository } from "../client/runtime";
@@ -67,7 +67,7 @@ interface UI {
   screen: Screen; hist: Screen[]; phase: "idle" | "out" | "in0"; dir: number;
   sheet: string | null; sheetIn: boolean; toast: string | null; busy: string | null; pop: boolean;
   source: Source; query: string; barcodeOpen: boolean; unkName: string; unkPlace: UserPlacement; unkFromReview: boolean;
-  pasteText: string; candidateMethod: "paste" | "scan" | "gallery"; selectedCatalogue: CatalogueProduct | null; candidate: ExtractionCandidate | null; revStep: 1 | 2; revName: string; revBrand: string; revCat: ProductCategory | null; revUse: ProductFormat | null;
+  pasteText: string; pasteEnrich: boolean; candidateMethod: "paste" | "scan" | "gallery"; selectedCatalogue: CatalogueProduct | null; candidate: ExtractionCandidate | null; revStep: 1 | 2; revName: string; revBrand: string; revCat: ProductCategory | null; revUse: ProductFormat | null;
   corrections: Record<string, string | null>; chipId: string | null; chipDraft: string;
   ctxRet: RetinoidExperience | null; ctxCare: string | null; buildN: number;
   stripSel: number; weekOpen: number; sheetDay: number; prodId: string | null;
@@ -84,7 +84,7 @@ interface Data {
 const INITIAL_UI: UI = {
   screen: "loading", hist: [], phase: "idle", dir: 1, sheet: null, sheetIn: false, toast: null, busy: null, pop: false,
   source: "organic", query: "", barcodeOpen: false, unkName: "", unkPlace: "pm", unkFromReview: false,
-  pasteText: "", candidateMethod: "paste", selectedCatalogue: null, candidate: null, revStep: 1, revName: "", revBrand: "", revCat: null, revUse: null, corrections: {}, chipId: null, chipDraft: "",
+  pasteText: "", pasteEnrich: false, candidateMethod: "paste", selectedCatalogue: null, candidate: null, revStep: 1, revName: "", revBrand: "", revCat: null, revUse: null, corrections: {}, chipId: null, chipDraft: "",
   ctxRet: null, ctxCare: null, buildN: 0, stripSel: -1, weekOpen: -1, sheetDay: 0, prodId: null,
   mixA: null, mixB: null, mixSlot: "a", mixResult: null, whyOpen: false,
   shareType: "rota", shareFmt: "story", shareNames: false, shareOpts: false,
@@ -569,7 +569,7 @@ export function useAppVM() {
       pasteText: u.pasteText, onPaste: (e: any) => set({ pasteText: e.target.value }),
       // The add screen's "Paste ingredients" and the paste sheet's "Read ingredients" share this binding in the source.
       pasteGo: async () => {
-        if (u.sheet !== "paste") { openSheet("paste"); return; }
+        if (u.sheet !== "paste") { openSheet("paste", { pasteEnrich: false }); return; }
         if (busy) return;
         const text = u.pasteText.trim();
         if (!text) { toast("Paste the ingredient list first"); return; }
@@ -577,7 +577,16 @@ export function useAppVM() {
         try {
           const res = await repo.extract({ method: "paste", side: "back", pastedText: text });
           if (!res.ok) { toast(PROBLEM_TEXT[res.problem]); return; }
-          closeSheet(() => go("review", 1, { candidate: res.candidate, revStep: 1, revName: res.candidate.name ?? "", revBrand: res.candidate.brand ?? "", revCat: res.candidate.category, revUse: res.candidate.format && res.candidate.format !== "unknown" ? res.candidate.format : null, corrections: {}, candidateMethod: "paste", pasteText: "" }));
+          // Enrich mode: identity is already reviewed, so attach the pasted INCI
+          // to the existing candidate instead of starting a fresh review. Keeps
+          // the confirmed front identity. Mirrors the photo enrich branch above.
+          if (u.pasteEnrich && u.candidate) {
+            if (res.candidate.ingredients.length === 0) { toast("No ingredients found in that text. Paste the full INCI list from the label."); return; }
+            closeSheet(() => set({ candidate: mergeEnrichedIngredients(u.candidate as ExtractionCandidate, res.candidate), revStep: 2, corrections: {}, candidateMethod: "paste", pasteText: "", pasteEnrich: false }));
+            toast("Ingredient list read. Review it before adding to your shelf.");
+            return;
+          }
+          closeSheet(() => go("review", 1, { candidate: res.candidate, revStep: 1, revName: res.candidate.name ?? "", revBrand: res.candidate.brand ?? "", revCat: res.candidate.category, revUse: res.candidate.format && res.candidate.format !== "unknown" ? res.candidate.format : null, corrections: {}, candidateMethod: "paste", pasteText: "", pasteEnrich: false }));
         } catch (e) { fail(e); } finally { set({ busy: null }); }
       },
       onPhoto: async (event: any) => {
@@ -604,11 +613,7 @@ export function useAppVM() {
             // Preserve the user's already-reviewed FRONT identity. Never replace
             // it with a model guess or manufacturer listing while enriching INCI.
             set({
-              candidate: {
-                ...u.candidate, extractionId: res.candidate.extractionId,
-                inciStatus: "partial", ingredients: res.candidate.ingredients,
-                provider: res.candidate.provider,
-              },
+              candidate: mergeEnrichedIngredients(u.candidate, res.candidate),
               revStep: 2, corrections: {}, candidateMethod: method,
             });
             toast("Ingredient list read. Review it before adding to your shelf.");
@@ -629,9 +634,9 @@ export function useAppVM() {
         : "Photo reading isn't enabled yet. Paste the ingredient list or add the product by name.",
       scanPrimary: photoEnabled ? "Take label photo" : "Paste ingredients",
       scanSecondary: photoEnabled ? "Choose from gallery" : "Add it by name",
-      camAllow: photoEnabled ? () => document.getElementById("myrota-scan-camera")?.click() : () => openSheet("paste"),
+      camAllow: photoEnabled ? () => document.getElementById("myrota-scan-camera")?.click() : () => openSheet("paste", { pasteEnrich: false }),
       toGallery: photoEnabled ? () => document.getElementById("myrota-scan-gallery")?.click() : () => go("add", -1),
-      shutter: () => {}, openPaste: () => openSheet("paste"),
+      shutter: () => {}, openPaste: () => openSheet("paste", { pasteEnrich: false }),
 
       // review (pasted INCI)
       revStepLabel: u.revStep === 1 ? "Step 1 of 2" : "Step 2 of 2", rs1: u.revStep === 1, rs2: u.revStep === 2, rsFlag: false,
@@ -648,7 +653,8 @@ export function useAppVM() {
       rvCats6: [...CATS, ["other", "Not sure"] as [ProductCategory, string]].map(([val, t]) => { const s0 = sel(u.revCat === val); return { t, ...s0, bd: s0.bc === "#2A1911" ? "2px solid #2A1911" : "1.5px solid #C99A72", pick: () => set({ revCat: val }) }; }),
       rvUse2: ([["rinse_off", "Rinse-off"], ["leave_on", "Leave-on"]] as const).map(([val, t]) => ({ t, ...seg(u.revUse === val), pick: () => set({ revUse: val }) })),
       revNext: () => { if (!u.revName.trim()) { toast("Type the product name first"); return; } if (!u.revCat) { toast("Pick what type of product it is"); return; } set({ revStep: 2 }); },
-      retake: () => { if (u.candidateMethod === "paste") openSheet("paste"); else go("add", -1); },
+      retake: () => { if (u.candidateMethod === "paste") openSheet("paste", { pasteEnrich: false }); else go("add", -1); },
+      enrichPaste: () => openSheet("paste", { pasteEnrich: true, pasteText: "" }),
       actRows: candIngredients.slice(0, 6).map((i) => ({ t: i.text + (i.status === "corrected" ? " · edited" : ""), kind: "read", edit: () => openSheet("chip", { chipId: i.id, chipDraft: i.text }) })),
       unreadOn: candIngredients.length > 6, unreadLine: `+ ${candIngredients.length - 6} more ingredient${candIngredients.length - 6 === 1 ? "" : "s"} read`, unreadFix: () => openSheet("notes"),
       reviewCta: "Continue to shelf",
