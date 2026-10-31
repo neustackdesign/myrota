@@ -291,3 +291,55 @@ deletion, no PR closure has happened.
 - Shared-project staging alias (if the §2 approach is reverted): §2 command.
 - `main` cutover: `git revert` the merge commit, or reset to `pre-consolidation-*` tag.
 - No destructive D1 operation is part of any step here.
+
+---
+
+## 11. Domain/contracts reconciliation — DONE (1 Nov 2026)
+
+Resolves the §9.4 blocker. The frontend now runs the **single canonical (engine)
+domain logic**; `apps/web/lib/domain/*` and `apps/web/lib/api/contract.ts` are
+**byte-identical** to `apps/api` (enforced by CI — see below).
+
+### 11.1 What changed
+- Vendored the engine-canonical `lib/domain` (`evidence`, `records`, `scheduler`,
+  `share`, `today`, `types`, `week`; the other three were already identical) and
+  `lib/api/contract.ts` into `apps/web`, replacing the diverged older FE copies.
+- Added `barcodeLookup?: boolean` to the canonical `ClientCapabilities` — the Worker
+  already sends it on `/api/config` and the FE reads it; the engine type was simply
+  missing it. (Applied to both apps so they stay identical.)
+- **This is the accepted FE behaviour change:** without a reviewed rule the FE no
+  longer *holds* a known active off the plan — it schedules it **provisionally**
+  (engine `interimActivePlan`: strong actives on separate evening nights with recovery
+  nights between, labelled `provisional`, making no safety/compatibility claim).
+  Structural categories (cleanser/toner/moisturiser/sunscreen) fill their layering
+  slot analysed-or-not (Issue #19). **The deployed server already did this** — the
+  reconciliation makes the FE's client-side logic agree with it, so there is no
+  user-visible divergence from today's live staging behaviour.
+
+### 11.2 Tests reconciled (safety-adjacent — verified, not flipped)
+- The FE's scenario suite was a near-copy of the engine's with one stale case. Adopted
+  the engine's authoritative `scenarios.test.ts`, whose **3b** explicitly blesses the new
+  policy ("the retinoid is NOT held for lack of a reviewed rule any more … every step
+  labelled `provisional`, never `reviewed_rule`") — consistent with CLAUDE.md's
+  "no confident compatibility / transparent editable default."
+- Rewrote the FE-only adapter test (`app-adapt`) to the engine's **actual** output
+  (captured by instrumenting the compiled domain, not hand-guessed): provisional retinoid
+  on spaced PM nights (0/2/4), and the **preserved safety invariant** that unknown/partial
+  products are never upgraded to an analysed active.
+- Result: `test:domain` web **27/27**, api **18/18**, `test:backend` **48/48**, typecheck
+  both, `build:web` + `build:api` complete.
+
+### 11.3 Mechanism: vendored-canonical + CI drift guard (not a separate package)
+Both pipelines (`web.yml`, `api.yml`) now run a fail-fast step:
+`diff -rq apps/web/lib/domain apps/api/lib/domain && diff -q apps/web/lib/api/contract.ts apps/api/lib/api/contract.ts`.
+Any drift fails CI, so the two copies are a single enforced source of truth.
+
+**Why not a physically-separate `packages/domain`:** `apps/web` deploys to Vercel from its
+own `apps/web` directory in isolation, so a sibling `packages/*` dependency can't be
+resolved from that build context — adopting one would force the staging **and the gated
+prod** Vercel build to a repo-root build, plus rewiring both bespoke `tsc`+`node` test
+harnesses and their output-path runners. That is disproportionate infra for 11 files and
+entangles the gated prod change. The vendored-canonical + drift-guard gives the same
+single-source-of-truth guarantee, keeps both apps independently deployable, and stays green.
+A physical `packages/` extraction remains a clean post-pilot option if the repo-root
+deploy model is adopted for prod anyway (tracked in §10.3).
