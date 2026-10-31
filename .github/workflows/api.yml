@@ -22,6 +22,9 @@ jobs:
         with:
           node-version: 24
       - run: npm install
+      # Canonical domain guard: apps/web must stay byte-identical to the engine domain.
+      - name: Domain/contract canonical (web == api)
+        run: diff -rq apps/web/lib/domain apps/api/lib/domain && diff -q apps/web/lib/api/contract.ts apps/api/lib/api/contract.ts
       - run: npm run typecheck -w @myrota/api
       - run: npm run test:domain
       - run: npm run test:backend

@@ -1,7 +1,7 @@
 import { computeStreak, dayStatus, listMisses, sessionDone, streakIfRescued, type MissedDay, type StreakSummary } from "./records";
 import { canSwapToRecovery } from "./scheduler";
 import { compareDates, diffDays, isLateNight, localHour, skincareDateAt } from "./skincare-day";
-import { recordsForRota, summarizeWeek, type WeekSummary } from "./week";
+import { recordsForRota, summarizeWeek, weekRotaIds, type WeekSummary } from "./week";
 import type {
   CompletionEvent,
   DayRecord,
@@ -79,7 +79,7 @@ export function buildTodayView(args: {
   const offset = diffDays(rota.startDate, today);
   const dayIndex = offset >= 0 && offset < 7 ? offset : -1;
   const allRecords = [
-    ...args.records.filter((r) => r.rotaId !== rota.id),
+    ...args.records.filter((r) => !weekRotaIds(rota).includes(r.rotaId)),
     ...recordsForRota(rota, args.records),
   ];
   const weekRecords = recordsForRota(rota, args.records);

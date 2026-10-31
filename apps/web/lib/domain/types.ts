@@ -38,15 +38,26 @@ export type ProductCategory =
 
 export type ProductFormat = "rinse_off" | "leave_on" | "unknown";
 
-/** Evidence-backed active classes. Only ever derived from verified or user-confirmed INCI. */
+/** Evidence-backed active classes. Recognition is nomenclature (CosIng-style), not
+ * a safety/clinical judgement — clinical rules about these still require review. */
 export type ActiveClass =
   | "retinoid"
   | "aha"
   | "bha"
+  | "pha"
   | "vitamin_c"
   | "niacinamide"
   | "azelaic_acid"
-  | "benzoyl_peroxide";
+  | "benzoyl_peroxide"
+  | "uv_filter";
+
+/** Strong actives that are not proactively combined in one session without a reviewed
+ * pair rule (conservative non-combination — makes NO compatibility claim). uv_filter
+ * and niacinamide are NOT strong actives for this purpose. */
+export const STRONG_ACTIVES: readonly ActiveClass[] = [
+  "retinoid", "aha", "bha", "pha", "benzoyl_peroxide",
+];
+export const isStrongActive = (c: ActiveClass): boolean => STRONG_ACTIVES.includes(c);
 
 export type SessionKind = "am" | "pm";
 /** Where the user chose to place a product we cannot analyse. */
@@ -59,6 +70,8 @@ export type IngredientStatus = "read" | "verified" | "unreadable" | "corrected";
 export interface LabelActive {
   name: string;
   percentage: number;
+  /** Class assigned by the server normalizer at ingestion (nomenclature only). */
+  activeClass?: ActiveClass | null;
 }
 
 export interface InciIngredient {
@@ -144,7 +157,7 @@ export interface CatalogueProduct {
   name: string;
   category: ProductCategory;
   format: ProductFormat;
-  identityKey: string;
+  identityKey: string | null;
   variant?: string | null;
   ingredients: InciIngredient[];
   inciStatus: EvidenceStatus;
@@ -233,6 +246,9 @@ export interface PlanContext {
 
 export type DayType = "treatment" | "recovery" | "daily" | "rest";
 
+/** Why a step is where it is, and the authority behind that decision (honest). */
+export type DecisionLabel = "reviewed_rule" | "product_directions" | "basic_order" | "provisional";
+
 export interface RotaStep {
   productId: string;
   displayName: string;
@@ -240,6 +256,10 @@ export interface RotaStep {
   /** False for unknown/partial/corrected products placed by the user: never paired or checked. */
   analysed: boolean;
   activeClass?: ActiveClass | null;
+  /** Source of authority for this placement. Shown to the user; never implies safety. */
+  label?: DecisionLabel;
+  /** Short plain-language explanation attached to a meaningful sequencing choice. */
+  reason?: string;
 }
 
 export interface RotaDayPlan {
@@ -261,7 +281,9 @@ export interface ShelfObservation {
 
 export interface HeldProduct {
   productId: string;
-  reason: "safety_flag" | "context_hold" | "insufficient_evidence" | "not_analysable" | "finished";
+  /** `weekly_limit`: an eligible strong active that did not fit this week's
+   * strong-night budget / recovery spacing. Not a safety verdict. */
+  reason: "safety_flag" | "context_hold" | "insufficient_evidence" | "not_analysable" | "finished" | "weekly_limit";
 }
 
 export type Feeling = "calm" | "bit_irritated" | "very_irritated";
@@ -288,6 +310,12 @@ export interface RotaSnapshot {
   archivedAt?: ISODateTime | null;
   reflection?: Reflection | null;
   previousRotaId?: string | null;
+  /**
+   * Earlier revisions of THIS SAME week (oldest first), replaced because the
+   * Shelf changed mid-week. Their day records still belong to this week: a day
+   * completed before the replan stays completed, and the week shares one Rescue.
+   */
+  supersedes?: string[];
 }
 
 // ---------------------------------------------------------------------------

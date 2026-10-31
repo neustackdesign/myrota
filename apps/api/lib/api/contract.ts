@@ -41,6 +41,8 @@ export interface MeResponse {
 export interface ClientCapabilities {
   photoReading: boolean;
   catalogue: boolean;
+  /** Barcode lookup is gated behind the catalogue; absent/false = keep it off. */
+  barcodeLookup?: boolean;
 }
 
 /** PROPOSED · GET /api/config — which sign-in methods are actually configured. Apple is never shown unless true. */

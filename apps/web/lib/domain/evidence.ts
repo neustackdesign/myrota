@@ -27,12 +27,35 @@ export function isAnalysable(product: Pick<ShelfProduct, "inciStatus">): boolean
   return ANALYSABLE.includes(product.inciStatus);
 }
 
-/** Active classes backed by evidence. Corrected or unreadable lines never contribute. */
+/** Active classes backed by a COMPLETE, analysable formula (verified/user_confirmed).
+ * Used only where whole-formula assurance matters; most planning uses the broader
+ * known-present signal below. Corrected or unreadable lines never contribute. */
 export function evidenceActiveClasses(product: Pick<ShelfProduct, "inciStatus" | "ingredients">): ActiveClass[] {
   if (!isAnalysable(product)) return [];
   const out = new Set<ActiveClass>();
   for (const ing of product.ingredients) {
     if ((ing.status === "verified" || ing.status === "read") && ing.activeClass) out.add(ing.activeClass);
+  }
+  return [...out];
+}
+
+/**
+ * Actives KNOWN TO BE PRESENT from whatever evidence is available — a positive fact
+ * that does NOT require a complete INCI list (Issue #19 §A/#2). Any read/verified
+ * ingredient carrying an activeClass counts even when the overall INCI is `partial`,
+ * and classified labelActives (Drug Facts / front panel) count too. This is strictly
+ * "this product contains X"; it is NEVER evidence of absence, completeness, or
+ * compatibility — those still require a complete formula and/or a reviewed rule.
+ */
+export function knownPresentActiveClasses(
+  product: Pick<ShelfProduct, "ingredients" | "labelActives">,
+): ActiveClass[] {
+  const out = new Set<ActiveClass>();
+  for (const ing of product.ingredients) {
+    if ((ing.status === "read" || ing.status === "verified") && ing.activeClass) out.add(ing.activeClass);
+  }
+  for (const la of product.labelActives ?? []) {
+    if (la.activeClass) out.add(la.activeClass);
   }
   return [...out];
 }

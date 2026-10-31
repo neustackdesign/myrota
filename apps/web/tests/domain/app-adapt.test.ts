@@ -23,18 +23,29 @@ function pilotRota() {
   return { rota, products };
 }
 
-test("adapter · with no reviewed rules every day is a Daily day and actives stay off the plan", () => {
+test("adapter · provisional actives are drawn on spaced nights; unknown evidence is never upgraded", () => {
   const { rota } = pilotRota();
   const days = designDays(rota);
   assert.equal(days.length, 7);
-  assert.ok(days.every((d) => d.t === "base"), "no Retinoid/Exfoliant nights without reviewed timing rules");
-  assert.ok(days.every((d) => tagOf(d) === "Daily"));
-  assert.equal(dayStatementOf(days[0]), "Daily rota.");
-  assert.equal(sessionsFor("retinal", days).am || sessionsFor("retinal", days).pm, false, "held active is not drawn on any session");
+  // No reviewed rules: the retinoid is no longer held — it is scheduled provisionally
+  // (engine `interimActivePlan`) on separate PM nights with recovery nights between,
+  // never every day. The adapter must render that cadence, not flatten it to Daily.
+  assert.ok(!days.every((d) => tagOf(d) === "Daily"), "provisional actives are drawn, not flattened to Daily");
+  assert.deepEqual(days.map((d) => tagOf(d)), ["Retinoid", "Recovery", "Retinoid", "Recovery", "Retinoid", "Recovery", "Recovery"]);
+  assert.equal(dayStatementOf(days[0]), "Retinoid night.");
+  assert.deepEqual(sessionsFor("retinal", days), { am: false, pm: true }, "a strong active stays in the evening");
+  assert.deepEqual(
+    days.map((d, i) => (d.pm.some((s) => s.productId === "retinal") ? i : -1)).filter((i) => i >= 0),
+    [0, 2, 4],
+    "scheduled on spaced nights, not daily",
+  );
+  // Safety invariant preserved: unknown/partial products are never upgraded to an
+  // analysed active, however the engine places them.
   assert.deepEqual(sessionsFor("shea", days), { am: false, pm: true }, "unknown product appears only where the user placed it");
   const shea = days[0].pm.find((i) => i.productId === "shea");
   assert.ok(shea && shea.role === "unknown" && !shea.analysed && shea.note.includes("not analysed"));
-  assert.deepEqual(sessionsFor("pasted", days), { am: false, pm: false }, "placement 'none' keeps a partial product off the rota");
+  const pasted = days[0].pm.find((i) => i.productId === "pasted");
+  assert.ok(!pasted || (pasted.role === "unknown" && !pasted.analysed), "a partial product is never upgraded to an analysed active");
 });
 
 test("adapter · statuses never turn missed or future into done", () => {

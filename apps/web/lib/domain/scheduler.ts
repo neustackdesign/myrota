@@ -1,4 +1,5 @@
-import { evidenceActiveClasses, isAnalysable, isHeldBySafetyFlag } from "./evidence";
+import { evidenceActiveClasses, knownPresentActiveClasses, isAnalysable, isHeldBySafetyFlag } from "./evidence";
+import { isStrongActive, type DecisionLabel } from "./types";
 import { findPairRule, type MixResult } from "./mix";
 import { addDays } from "./skincare-day";
 import type {
@@ -46,7 +47,25 @@ export interface BuildRotaInput {
   ruleSet: RuleSet;
   accepted?: AcceptedStatuses;
   previousRotaId?: string | null;
+  /** Active classes in the PREVIOUS rota's final PM session, so a week boundary
+   * cannot put a strong active the night after an exfoliant night. */
+  previousFinalNight?: ActiveClass[];
 }
+
+/**
+ * Routine guidance `recovery-spacing-v1` (general routine suggestion, editable,
+ * NOT a medical rule): at most this many strong-active nights a week by default,
+ * and the night after an exfoliant night carries no retinoid or exfoliant. A
+ * reviewed timing rule or the product's own directions (label `reviewed_rule` /
+ * `product_directions`) keep their own cadence and are not capped here.
+ */
+export const STRONG_NIGHTS_PER_WEEK = 4;
+const EXFOLIANT = new Set<ActiveClass>(["aha", "bha", "pha"]);
+const isExfoliant = (classes: ActiveClass[]) => classes.some((c) => EXFOLIANT.has(c));
+/** Preferred nights for n strong nights: every one followed by a recovery night where possible. */
+const STRONG_NIGHT_PATTERN: Record<number, number[]> = { 1: [0], 2: [0, 3], 3: [0, 2, 4], 4: [0, 2, 4, 6] };
+const SPACING_REASON = `Strong-active nights are kept to ${STRONG_NIGHTS_PER_WEEK} a week, with a recovery night after each exfoliant night — a general routine suggestion you can change, or follow the product's own directions.`;
+const RECOVERY_REASON = "Recovery night after last night's exfoliant: no retinoid or exfoliant tonight.";
 
 const STEP_ORDER: Record<string, number> = {
   cleanser: 0,
@@ -58,17 +77,26 @@ const STEP_ORDER: Record<string, number> = {
   benzoyl_peroxide: 5,
   aha: 6,
   bha: 6,
+  pha: 6,
   retinoid: 7,
   treatment: 7,
   other: 8,
   unanalysed: 8,
   moisturiser: 9,
   sunscreen: 10,
+  uv_filter: 10,
 };
 
+/** Categories that fix a structural layering slot regardless of any active inside
+ * them (a niacinamide moisturiser stays at the moisturiser step; a sunscreen stays last). */
+const STRUCTURAL = new Set<ProductCategory>(["cleanser", "toner", "moisturiser", "sunscreen"]);
+
 function stepRank(step: RotaStep) {
+  // Structural slot first, analysed or not: an unanalysed sunscreen is still a
+  // sunscreen and must never sort before moisturiser (Issue #19 invariant 2).
+  if (STRUCTURAL.has(step.category)) return STEP_ORDER[step.category] ?? STEP_ORDER.other;
   if (!step.analysed) return STEP_ORDER.unanalysed;
-  if (step.activeClass) return STEP_ORDER[step.activeClass];
+  if (step.activeClass) return STEP_ORDER[step.activeClass] ?? STEP_ORDER[step.category] ?? STEP_ORDER.other;
   return STEP_ORDER[step.category] ?? STEP_ORDER.other;
 }
 
@@ -82,11 +110,53 @@ const BASIC_SESSIONS: Record<ProductCategory, SessionKind[]> = {
   other: ["am", "pm"],
 };
 
+/** Human-friendly active names for plain-language step reasons (nomenclature only). */
+const CLASS_NAME: Record<ActiveClass, string> = {
+  retinoid: "retinoid", aha: "AHA exfoliant", bha: "BHA exfoliant", pha: "PHA exfoliant",
+  vitamin_c: "vitamin C", niacinamide: "niacinamide", azelaic_acid: "azelaic acid",
+  benzoyl_peroxide: "benzoyl peroxide", uv_filter: "sunscreen",
+};
+const names = (classes: ActiveClass[]) => classes.map((c) => CLASS_NAME[c]).join(" / ");
+
+/** Inherently-daily gentle classes that may coexist in one session without a reviewed
+ * pair rule (no treatment-intensity to separate). */
+const GENTLE_DAILY = new Set<ActiveClass>(["niacinamide", "vitamin_c", "uv_filter"]);
+const isGentleDaily = (plan: ActivePlan) => plan.classes.every((c) => GENTLE_DAILY.has(c));
+
 interface ActivePlan {
   product: ShelfProduct;
   classes: ActiveClass[];
   sessions: SessionKind[];
   perWeek: number;
+  strong: boolean;
+  label: DecisionLabel;
+  reason: string;
+}
+
+/** Interim consumer-routine policy for a known-present active without a reviewed rule.
+ * Ordinary layering + a transparent, editable default cadence. Makes NO safety or
+ * compatibility claim; strong actives are kept on separate sessions as a default. */
+function interimActivePlan(product: ShelfProduct, classes: ActiveClass[], context: PlanContext): ActivePlan {
+  const strong = classes.some(isStrongActive);
+  const hasUv = classes.includes("uv_filter");
+  let sessions: SessionKind[];
+  let perWeek: number;
+  let label: DecisionLabel;
+  let reason: string;
+  if (hasUv) {
+    sessions = ["am"]; perWeek = 7; label = "basic_order";
+    reason = "Sunscreen goes on every morning, as the last step.";
+  } else if (strong) {
+    sessions = ["pm"];
+    const newToRetinoid = classes.includes("retinoid") && context.retinoidExperience === "new";
+    perWeek = newToRetinoid ? 2 : 3;
+    label = "provisional";
+    reason = `This ${names(classes.filter(isStrongActive))} product is scheduled in the evening on separate nights as a starting point — adjust the frequency to suit your skin.`;
+  } else {
+    sessions = ["am", "pm"]; perWeek = 7; label = "basic_order";
+    reason = `This gentle ${names(classes)} product can be used daily.`;
+  }
+  return { product, classes, sessions, perWeek: Math.max(1, Math.min(7, perWeek)), strong, label, reason };
 }
 
 function acceptedRule<T extends { status: TimingRule["status"]; reviewers: unknown[] }>(rule: T | undefined, accepted: AcceptedStatuses) {
@@ -140,41 +210,39 @@ export function buildRota(input: BuildRotaInput): RotaSnapshot {
       held.push({ productId: product.id, reason: "safety_flag" });
       continue;
     }
-    if (!isAnalysable(product)) {
-      const placement = product.placement ?? "none";
-      if (placement === "none") held.push({ productId: product.id, reason: "not_analysable" });
-      else basics.push({ product, sessions: [placement], analysed: false });
-      continue;
-    }
-    const classes = evidenceActiveClasses(product);
+    // Known-present actives drive planning even from a PARTIAL list (Issue #19).
+    const classes = knownPresentActiveClasses(product);
     if (classes.length === 0) {
-      basics.push({ product, sessions: BASIC_SESSIONS[product.category], analysed: true });
+      // No recognised active → basic layering by category, or user placement if unknown.
+      if (isAnalysable(product) || product.category !== "other" || product.ingredients.length > 0) {
+        basics.push({ product, sessions: BASIC_SESSIONS[product.category], analysed: isAnalysable(product) });
+      } else {
+        const placement = product.placement ?? "none";
+        if (placement === "none") held.push({ productId: product.id, reason: "not_analysable" });
+        else basics.push({ product, sessions: [placement], analysed: false });
+      }
       continue;
     }
     if (classes.some((c) => holdClasses.has(c))) {
       held.push({ productId: product.id, reason: "context_hold" });
       continue;
     }
+    // Prefer a reviewed timing rule when every active class has one; otherwise use
+    // the interim consumer-routine plan (ordinary layering + editable default cadence).
     const timing = classes.map((c) => ruleSet.timingRules.find((r) => r.activeClass === c && acceptedRule(r, accepted)));
-    if (timing.some((t) => !t)) {
-      held.push({ productId: product.id, reason: "insufficient_evidence" });
-      continue;
+    if (timing.every(Boolean)) {
+      const rules = timing as TimingRule[];
+      const fixed = new Set(rules.map((r) => r.session).filter((s) => s !== "either"));
+      if (fixed.size <= 1) {
+        const sessions: SessionKind[] = fixed.size === 1 ? [[...fixed][0] as SessionKind] : ["am", "pm"];
+        const perWeek = Math.min(...rules.map((r) =>
+          r.activeClass === "retinoid" && context.retinoidExperience === "new" && r.maxPerWeekWhenNew != null
+            ? r.maxPerWeekWhenNew : r.maxPerWeek));
+        actives.push({ product, classes, sessions, perWeek: Math.max(1, Math.min(7, perWeek)), strong: classes.some(isStrongActive), label: "reviewed_rule", reason: "Timing set by a clinician-reviewed rule." });
+        continue;
+      }
     }
-    const rules = timing as TimingRule[];
-    const fixed = new Set(rules.map((r) => r.session).filter((s) => s !== "either"));
-    if (fixed.size > 1) {
-      held.push({ productId: product.id, reason: "insufficient_evidence" });
-      continue;
-    }
-    const sessions: SessionKind[] = fixed.size === 1 ? [[...fixed][0] as SessionKind] : ["am", "pm"];
-    const perWeek = Math.min(
-      ...rules.map((r) =>
-        r.activeClass === "retinoid" && context.retinoidExperience === "new" && r.maxPerWeekWhenNew != null
-          ? r.maxPerWeekWhenNew
-          : r.maxPerWeek,
-      ),
-    );
-    actives.push({ product, classes, sessions, perWeek: Math.max(0, Math.min(7, perWeek)) });
+    actives.push(interimActivePlan(product, classes, context));
   }
 
   // Scarcest first, then stable by id, so output is deterministic.
@@ -187,13 +255,23 @@ export function buildRota(input: BuildRotaInput): RotaSnapshot {
       if (p.day !== day) continue;
       if (p.plan === plan) return false;
       const v = pairVerdict(ruleSet, plan.classes, p.plan.classes, accepted);
-      if (p.session === session && v !== "fine_together") return false;
-      if (p.session !== session && v !== "fine_together" && v !== "better_separated") return false;
+      if (v === "fine_together") continue;                                   // reviewed: may share
+      if (v === "alternate_days" || v === "professional_check") return false; // reviewed: never same day
+      if (v === "better_separated") { if (p.session === session) return false; continue; } // reviewed: never same session
+      // No reviewed pair rule → interim default: two treatment-intent actives never
+      // share a session (transparent separation; makes NO compatibility claim).
+      // Only inherently-daily gentle classes may coexist in one session.
+      if (p.session === session && !(isGentleDaily(plan) && isGentleDaily(p.plan))) return false;
     }
     return true;
   };
 
-  for (const plan of actives) {
+  // Strong interim actives (no reviewed rule / directions) are planned together
+  // under recovery-spacing-v1 below; everything else keeps greedy placement.
+  const spaced = actives.filter((a) => a.strong && a.label === "provisional" && a.sessions.includes("pm"));
+  const greedy = actives.filter((a) => !spaced.includes(a));
+
+  for (const plan of greedy) {
     let count = 0;
     const tried = new Set<number>();
     for (const ideal of spreadDays(plan.perWeek)) {
@@ -212,25 +290,85 @@ export function buildRota(input: BuildRotaInput): RotaSnapshot {
     if (count === 0) held.push({ productId: plan.product.id, reason: "insufficient_evidence" });
   }
 
+  const strongPmOn = (day: number): ActiveClass[] | null => {
+    if (day === -1) return input.previousFinalNight?.length ? input.previousFinalNight : null;
+    const here = placed.filter((p) => p.day === day && p.session === "pm" && p.plan.strong);
+    return here.length ? here.flatMap((p) => p.plan.classes) : null;
+  };
+  /** recovery-spacing-v1: an exfoliant night is followed by a night with no strong
+   * active, and never directly follows another strong night (including the previous
+   * rota's final night), so different strong products always have a recovery night between. */
+  const spacingAllows = (plan: ActivePlan, day: number) => {
+    if (strongPmOn(day)) return false;
+    const before = strongPmOn(day - 1);
+    const after = day < 6 ? strongPmOn(day + 1) : null;
+    if (before && isExfoliant(before)) return false;
+    if (after && isExfoliant(plan.classes)) return false;
+    if (before && isExfoliant(plan.classes)) return false;
+    if (after && isExfoliant(after)) return false;
+    return canPlace(plan, day, "pm");
+  };
+
+  const fixedStrongNights = new Set(placed.filter((p) => p.session === "pm" && p.plan.strong).map((p) => p.day)).size;
+  let budget = Math.max(0, STRONG_NIGHTS_PER_WEEK - fixedStrongNights);
+  // Share the budget round-robin; exfoliants first (most constrained), then by id.
+  const order = [...spaced].sort((a, b) => Number(isExfoliant(b.classes)) - Number(isExfoliant(a.classes)) || a.product.id.localeCompare(b.product.id));
+  const want = new Map<ActivePlan, number>(order.map((p) => [p, 0]));
+  for (let added = true; added && budget > 0;) {
+    added = false;
+    for (const plan of order) {
+      if (budget > 0 && want.get(plan)! < plan.perWeek) { want.set(plan, want.get(plan)! + 1); budget -= 1; added = true; }
+    }
+  }
+  // Interleave so the same product is not on back-to-back strong nights.
+  const sequence: ActivePlan[] = [];
+  const left = new Map(want);
+  for (let total = [...left.values()].reduce((a, b) => a + b, 0); total > 0; total -= 1) {
+    const prev = sequence.at(-1);
+    const pick = order
+      .filter((p) => left.get(p)! > 0)
+      .sort((a, b) => Number(a === prev) - Number(b === prev) || left.get(b)! - left.get(a)!)[0];
+    sequence.push(pick);
+    left.set(pick, left.get(pick)! - 1);
+  }
+  const pattern = STRONG_NIGHT_PATTERN[sequence.length] ?? [];
+  const startShift = input.previousFinalNight?.some(isStrongActive) ? 1 : 0;
+  sequence.forEach((plan, i) => {
+    const ideal = (pattern[i] ?? 0) + startShift;
+    const candidates = [ideal, ...Array.from({ length: 7 }, (_, d) => d)].filter((d) => d >= 0 && d < 7);
+    const day = candidates.find((d) => spacingAllows(plan, d));
+    if (day !== undefined) placed.push({ plan: { ...plan, reason: `${plan.reason} ${SPACING_REASON}` }, day, session: "pm" });
+  });
+  for (const plan of spaced) {
+    if (!placed.some((p) => p.plan.product.id === plan.product.id)) held.push({ productId: plan.product.id, reason: "weekly_limit" });
+  }
+
   const hasCapped = placed.some((p) => p.plan.perWeek < 7);
-  const toStep = (product: ShelfProduct, analysed: boolean, activeClass: ActiveClass | null = null): RotaStep => ({
+  const exfoliantNights = new Set(placed.filter((p) => p.session === "pm" && isExfoliant(p.plan.classes)).map((p) => p.day));
+  const recoveryAfterExfoliant = (day: number) =>
+    (day === 0 ? !!input.previousFinalNight && isExfoliant(input.previousFinalNight) : exfoliantNights.has(day - 1));
+  const toStep = (product: ShelfProduct, analysed: boolean, activeClass: ActiveClass | null = null, label?: DecisionLabel, reason?: string): RotaStep => ({
     productId: product.id,
     displayName: product.name || "Unnamed product",
     category: product.category,
     analysed,
     activeClass,
+    ...(label ? { label } : {}),
+    ...(reason ? { reason } : {}),
   });
 
   const days: RotaDayPlan[] = Array.from({ length: 7 }, (_, index) => {
     const am: RotaStep[] = [];
     const pm: RotaStep[] = [];
     for (const b of basics) {
-      if (b.sessions.includes("am")) am.push(toStep(b.product, b.analysed));
-      if (b.sessions.includes("pm")) pm.push(toStep(b.product, b.analysed));
+      const reason = b.product.category === "cleanser" ? "Cleanse first." : b.product.category === "moisturiser" ? "Moisturise after treatments." : undefined;
+      if (b.sessions.includes("am")) am.push(toStep(b.product, b.analysed, null, "basic_order", reason));
+      if (b.sessions.includes("pm")) pm.push(toStep(b.product, b.analysed, null, "basic_order", recoveryAfterExfoliant(index) ? RECOVERY_REASON : reason));
     }
     let treatment = false;
     for (const p of placed.filter((x) => x.day === index)) {
-      const step = toStep(p.plan.product, true, p.plan.classes[0]);
+      const active = p.plan.classes.find(isStrongActive) ?? p.plan.classes[0];
+      const step = toStep(p.plan.product, true, active, p.plan.label, p.plan.reason);
       (p.session === "am" ? am : pm).push(step);
       if (p.plan.perWeek < 7) treatment = true;
     }
@@ -301,6 +439,8 @@ export function buildShelfCheck(rota: RotaSnapshot, products: ShelfProduct[]): S
     const n = daysWith(rota, treat[0]).length;
     out.push({ id: "frequency", tone: "insight", text: `${name(treat[0])} is on ${n} ${n === 1 ? "day" : "days"} this week, with lighter days between.` });
   }
+  const limited = rota.held.filter((h) => h.reason === "weekly_limit");
+  if (limited.length) out.push({ id: "weekly_limit", tone: "insight", text: `${name(limited[0].productId)} sits out this week to keep strong-active nights to ${STRONG_NIGHTS_PER_WEEK}. You can swap it in.` });
   const unreviewed = rota.held.filter((h) => h.reason === "insufficient_evidence");
   if (unreviewed.length) out.push({ id: "unreviewed", tone: "unknown", text: `${name(unreviewed[0].productId)} is waiting for a reviewed rule, so it's on your shelf but not scheduled.` });
   const unanalysed = products.filter((p) => !p.finishedAt && !isAnalysable(p));

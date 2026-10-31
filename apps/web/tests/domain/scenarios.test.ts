@@ -155,14 +155,22 @@ test("3 · Mix→rota note reflects the real verdict and the real plan", () => {
   assert.equal(evaluatePair(shelfToMixSubject(ret), shelfToMixSubject(bha), demoOnly, PRODUCTION_ACCEPTED).verdict, "insufficient_evidence");
 });
 
-test("3b · without reviewed timing rules, actives are held, never guessed", () => {
+test("3b · without reviewed timing rules, a known active is scheduled provisionally, labelled honestly", () => {
   const rota = buildRota({
     rotaId: "r", weekNumber: 1, startDate: "2026-10-05", timeZone: LAGOS, createdAt: "2026-10-05T06:00:00.000Z",
     products: [product("ret", "treatment", ["retinoid"]), product("cleanser", "cleanser")],
     context: {}, ruleSet: { version: "empty", pairRules: [], timingRules: [], contextHoldRules: [] },
   });
-  assert.deepEqual(rota.held, [{ productId: "ret", reason: "insufficient_evidence" }]);
-  assert.ok(rota.days.every((d) => ![...d.am, ...d.pm].some((s) => s.productId === "ret")));
+  // The retinoid is NOT held for lack of a reviewed rule any more (single-active
+  // restriction withdrawn): it is scheduled on separate PM nights as a transparent,
+  // editable default. Every such step is labelled `provisional` — never `reviewed_rule`.
+  assert.equal(rota.held.length, 0);
+  const retDays = daysWith(rota, "ret");
+  assert.ok(retDays.length >= 1 && retDays.length < 7, "scheduled on some nights, not every day");
+  const retSteps = rota.days.flatMap((d) => [...d.am, ...d.pm]).filter((s) => s.productId === "ret");
+  assert.ok(retSteps.every((s) => s.label === "provisional"), "honest label, no fabricated review");
+  assert.ok(rota.days.every((d) => d.am.every((s) => s.productId !== "ret")), "strong active stays in the evening");
+  assert.ok(retSteps.every((s) => s.activeClass === "retinoid" && s.reason));
 });
 
 test("3c · context holds come only from reviewed rules and the user's own answer", () => {

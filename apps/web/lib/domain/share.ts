@@ -29,6 +29,8 @@ export const ACTIVE_CLASS_LABEL: Record<ActiveClass, string> = {
   niacinamide: "Niacinamide",
   azelaic_acid: "Azelaic acid",
   benzoyl_peroxide: "Benzoyl peroxide",
+  pha: "PHA",
+  uv_filter: "UV filter",
 };
 
 export interface ShareCardPayload {
