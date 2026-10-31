@@ -54,6 +54,13 @@ export type UserPlacement = "am" | "pm" | "none";
 
 export type IngredientStatus = "read" | "verified" | "unreadable" | "corrected";
 
+/** Drug Facts or similar ACTIVE-INGREDIENT panel: incomplete formula evidence.
+ * NEVER count this as a complete INCI list or clinical rules acceptance. */
+export interface LabelActive {
+  name: string;
+  percentage: number;
+}
+
 export interface InciIngredient {
   id: string;
   /** Text as read or typed. Empty for an unreadable line. */
@@ -119,6 +126,8 @@ export interface ShelfProduct {
   identityKey?: string | null;
   variant?: string | null;
   ingredients: InciIngredient[];
+  /** Individually printed actives: not proof of the full inactive formula. */
+  labelActives?: LabelActive[];
   flags: SafetyFlag[];
   /** User-chosen timing for products we cannot analyse. */
   placement?: UserPlacement;

@@ -2,6 +2,9 @@
 **Status:** Cloudflare-first architecture LOCKED · 8 October 2026
 **Pilot goal:** 10 real users, target 16 October 2026; *date is conditional on passed gates, not a licence to ship inaccurate skincare advice*.
 
+## Repository structure (consolidated monorepo · 31 October 2026)
+One repo, npm workspaces. `apps/web` = landing + PWA (proxies `/api/*` to the Worker via `MYROTA_API_ORIGIN`); `apps/api` = Cloudflare Worker + D1 backend (Vinext/Vite/Drizzle/Better Auth/Turnstile). Shared, platform-neutral logic lives under each app's `lib/domain`. Backend baseline is the engine line (`fix/next-week-recovery-spacing`); frontend baseline is `feat/dual-label-scan-ui` (carries the manual-entry P0 fix). See `docs/CONSOLIDATION.md` for the baseline decision, staging isolation, and the behaviour-gated domain/contracts reconciliation still outstanding.
+
 ## Read order and authority
 1. This file: architectural and behavioural contract.
 2. `docs/CLOUDFLARE_GATE1.md`: provision/deploy checklist, pass/fail log and no-secrets rules.
@@ -86,6 +89,7 @@ Also verify actual paired Friend Streak across Lagos/Dubai timezones and one-pro
 **Gate 5 — Release**: visual fidelity to approved assets, provider branding, professional signoff, licensed photos, cross-device/browser tests, usage monitoring and 10-user beta.
 
 ## Working arrangements — simultaneous execution
+> **Superseded by consolidation (31 Oct 2026).** The parallel infra/design split below is the Gate-1 phase it describes; that work now lives together in this monorepo on `consolidate/canonical` (`apps/api` = the infra/engine line, `apps/web` = the design line). The per-branch "never alter CLAUDE.md / don't merge to main" rules were that phase's guardrails. `docs/CONSOLIDATION.md` holds the current integration plan and the gated production cutover.
 - **Infrastructure branch**: `infra/cloudflare-gate1` owned by ChatGPT. ONLY modify backend/infra, data contracts, test harness, migrations, CI, config and infrastructure documentation. Report commits and red/green verification.
 - **Design branch**: Claude Code uses `feat/product-ui-v1-2` from current `main`. ONLY implement approved UI components, screens, design tokens/motion/assets and pure platform-neutral domain functions/tests. API/repository interfaces are specified in `docs/IMPLEMENTATION_HANDOFF.md`. Never rewrite Cloudflare configuration/Auth/D1/migrations, never alter `CLAUDE.md`, and don't merge into `main` while Gate 1 is underway.
 - No shared working-tree conflicts. Integration by cherry-pick/PR after Gate 1, with explicit interface tests, never force-push.

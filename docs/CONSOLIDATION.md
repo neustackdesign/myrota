@@ -135,3 +135,159 @@ so `/api/*` proxies to the isolated staging Worker/D1. Production (`myrota-eight
 - Production cutover (new canonical `main`, prod Worker/alias changes) — **gated on acceptance + explicit approval.**
 - Closing superseded PRs (§7) and deleting branches/worktrees/stale Vercel deployments — **gated** (reversible plan kept).
 - Any destructive D1 operation — **not permitted** without explicit approval.
+
+---
+
+## 9. Execution update — 31 Oct 2026 (isolated staging deploy + validation)
+
+### 9.1 Dedicated staging Vercel project (NEW, isolated from prod)
+Per approval, a **separate** Vercel project now serves the consolidated `apps/web` —
+the shared prod `myrota` project was **not** touched.
+
+| Field | Value |
+|---|---|
+| Project | `myrota-staging-web` |
+| Project ID | `prj_ltOSqfrDGzV1qQY98pp718IjO0Ok` (org `team_PMqBnFMEc1EEjdHUViPFjUOp`) |
+| Deployed SHA | `cf53de1` (consolidate/canonical) |
+| Deployment | `dpl_9RrJBi3km3CPwtC7eE3eC5uG1j5c`, target=production (of this staging project) |
+| URL | `https://myrota-staging-web.vercel.app` |
+| Env (Production scope) | `MYROTA_API_ORIGIN=https://myrota-staging.neustackdesign.workers.dev` |
+| Turnstile | staging test key `1x00000000000000000000AA` (served by the staging Worker; auto-passes) |
+| Backend | staging Worker `myrota-staging` → D1 `myrota-staging` (`c003a749…`) |
+
+**Isolation verified:** `myrota-staging-web.vercel.app/api/config` returns the staging
+signature (test key + `capabilities`), byte-identical to the staging Worker direct.
+Distinct D1 database ⇒ staging writes cannot reach prod records. Prod project unchanged.
+
+**How it was built (reproducible):** CLI deploy from `apps/web` (`vercel link --project
+myrota-staging-web`, `vercel env add MYROTA_API_ORIGIN production`, `vercel deploy --prod`),
+then `vercel alias set <deployment> myrota-staging-web.vercel.app`. No Git integration was
+connected, so there are **no auto-deploy triggers** on this project yet (see cutover plan §10
+for restricting the eventual Git connection to `consolidate/canonical` only).
+
+**Rollback:** `vercel remove myrota-staging-web --yes` deletes the whole isolated project;
+nothing else references it. (The earlier per-build re-alias on the *shared* project in §2 is
+now redundant and can be reverted with the §2 rollback command if desired.)
+
+### 9.2 Browser end-to-end (live `myrota-staging-web.vercel.app`, consolidated build)
+Driven headless against the deployed staging artifact. Network evidence captured.
+
+| Journey | Result |
+|---|---|
+| Landing nav + app CTA → `/app` | ✅ |
+| Product recognition + ingredient entry (paste INCI) | ✅ `POST /api/extract → 200`, chips parsed, identity/ingredient confidence correctly separated |
+| OCR failure → manual entry | ✅ same code path (paste is the manual fallback) |
+| Auth at first mutation | ✅ `POST /api/auth/sign-in/anonymous → 200`; session cookie **HttpOnly** (invisible to JS) |
+| Product save + persistence | ✅ `POST /api/shelf → 201`; product survives full reload (read back from staging D1) |
+| 7-day rota generation | ✅ retinoid scheduled 3 days with spacing; "starts tonight"; commit persists across reload |
+| Data isolation | ✅ ownership-checked routes (backend suite) + HttpOnly cookie; shelf scoped to session |
+| PWA deep links + failure recovery | ✅ direct `/app/today`, `/app/shelf`; unknown route → redirect to `/app/today` |
+| Completion **tap** | ⏳ correctly **server-time-gated to 20:00** (tested at 13:36 Asia/Dubai). Not a defect; the completion write is the same authenticated-D1 path proven by shelf `201` + reload survival. Exercise in an evening window or with a controlled server clock. |
+| Real iPhone / Android | ⏳ OUTSTANDING — no device access in this environment. |
+
+### 9.3 PRs #17 / #18 — resolved
+- **#17** (sunscreen Drug Facts: preserve labelled UV actives) — **already consolidated**:
+  `fix/uv-drug-label-evidence` is a git-ancestor of the `apps/api` baseline
+  (`fix/next-week-recovery-spacing`). `labelActives`/`ClientCapabilities` are present in
+  `apps/api`. No action; safe to close as merged-into-baseline.
+- **#18** (Shiseido review: display declared actives) — **partially applied, rest gated**:
+  #18 branches from `feat/dual-label-scan-ui` but is a *later evolution* of the review-enrich
+  area that **rewrites the validated P0 manual-entry path** (removes `mergeEnrichedIngredients`
+  from `drafts.ts`, drops the `review-paste-ingredients` button, deletes the P0 enrich test)
+  **and** adds the label-actives percentage display. Applying it whole would change established
+  review behaviour.
+  - **Applied (safe, additive):** the `LabelActive` type + `labelActives?` contract fields
+    on `apps/web` (`lib/domain/types.ts`, `lib/api/contract.ts`) — aligns the FE contract with
+    what `apps/api` already sends. FE typecheck green. Zero runtime change.
+  - **Gated follow-up:** porting #18's declared-actives **UI** (`screens.tsx`, `useAppVM.tsx`)
+    requires deciding whether it supersedes the current P0 review-enrich implementation, porting
+    its test replacement, and re-validating the manual-entry + sunscreen journeys. Do NOT blind
+    cherry-pick (it would regress the validated P0 path). Keep #18 open until then.
+
+### 9.4 Shared-packages reconciliation — the real finding (behaviour-gated)
+Measured divergence between `apps/web` and `apps/api`: `scheduler.ts` **differs 210 lines**,
+`week.ts` 76, `types.ts` 45, `evidence.ts` 25, `contract.ts` 20, `records.ts` 10;
+`friend-streak`, `mix`, `skincare-day` are identical. **The FE executes its own `buildRota`**
+(3 call sites incl. `useAppVM`), and `today.ts` transitively uses `scheduler`/`week`/`records` —
+so the diverged files are **live, not dead**. The API versions are the newer, more-correct
+engine implementation (Issue #19 structural-slot fix, exfoliant recovery-spacing, `interimActivePlan`).
+
+Contracts pull in `domain/types`, which feed `scheduler`; the two sides are **one coherent but
+diverged logic unit**. A true shared-package extraction means adopting the engine-canonical
+version wholesale in the FE — which **changes the FE's established client-side rota behaviour**.
+That contradicts "without changing established behaviour," so it is **not done here**. FE↔API
+HTTP compatibility is already proven live (the two consolidated codebases are what staging runs),
+so this is correctness-neutral cleanup, not a functional blocker.
+
+**Recommended path (own change, test-gated):** adopt `apps/api`'s `lib/domain` + `lib/api/contract.ts`
+as `packages/domain` + `packages/contracts`, repoint `apps/web` imports, then **re-run both domain
+suites and re-validate the FE rota-render + review journeys** before merge. Treat the FE's
+client-side `buildRota` as a candidate for deletion if the server is authoritative for all rota
+generation (verify first).
+
+### 9.5 CI consolidated
+Replaced the stale root `.github/workflows/ci.yml` (it ran root `build`/`test:benchmark` scripts
+that don't exist in the monorepo → would fail every PR) with two **path-filtered** workflows:
+`web.yml` (runs on `apps/web/**` changes: typecheck + `build:web`) and `api.yml` (runs on
+`apps/api/**` changes: typecheck + `test:domain` + `test:backend` + `build:api`). A web-only change
+no longer triggers the api pipeline, and vice versa. The nested `apps/api/.github/` is inert
+(GitHub reads only root `.github/workflows`) and is left in place (not deleted).
+
+### 9.6 Docs
+- `README.md` rewritten as the canonical monorepo doc (layout, stack, dev commands, environments
+  table); removed the stale "Supabase target / Vercel target / localStorage adapter" lines.
+- `CLAUDE.md`: added a "Repository structure (consolidated monorepo)" section and a superseded-banner
+  on "Working arrangements" noting the parallel infra/design phase is now consolidated here.
+- `docs/ARCHITECTURE.md` / `docs/BUILD_PLAN.md` retain their single Supabase mentions, which are the
+  correct *negative* statements ("no shared Supabase, no Neon path"); nothing outdated to remove there.
+
+### 9.7 Full matrix re-run (after the #18 type apply)
+`typecheck` (both apps), `test:domain` (27 web-domain adapters via api runner), `test:backend` (48),
+`build:web`, `build:api` — re-run on `consolidate/canonical` + the uncommitted #18 type additions.
+(Results recorded at commit time; the deployed `cf53de1` artifact is unaffected — the additions are
+type-only.)
+
+---
+
+## 10. Production cutover + cleanup plan (NOT executed — gated on your approval)
+
+Nothing below has been run. No merge to `main`, no prod service change, no branch/worktree
+deletion, no PR closure has happened.
+
+### 10.1 Preconditions (must all hold first)
+1. Evening-window (or clock-controlled) completion-tap test passes on staging.
+2. At least one real iPhone (installed PWA) + Android pass of the core loop.
+3. The §9.4 shared-domain reconciliation either done+revalidated, or explicitly deferred to post-pilot with #18's UI port tracked.
+4. Stakeholder sign-off that `consolidate/canonical` is the canonical source.
+
+### 10.2 Canonical `main` cutover (reversible)
+- Open a PR `consolidate/canonical → main`; require `web.yml`+`api.yml` green.
+- Merge with a **merge commit** (preserve history), do **not** squash (keeps the engine/design ancestry).
+- Tag the pre-cutover `main` as `pre-consolidation-YYYYMMDD` for instant rollback (`git reset --hard <tag>` + force-push is the break-glass; prefer `git revert` of the merge).
+- **Production runtime is unaffected by the merge** — prod Worker `myrota` + D1 `7992c70c` + alias `myrota-eight` stay frozen until a separate, explicit prod-deploy decision.
+
+### 10.3 Production frontend cutover (separate, later)
+- Prod FE currently builds from the shared `myrota` Vercel project. To serve the monorepo `apps/web`
+  to prod, set that project's **Root Directory = `apps/web`** (production-affecting — changes every
+  prod build) **or** migrate prod onto its own monorepo-aware project. Decide and schedule; do not
+  change the prod project's build settings as part of the `main` merge.
+- Prod Worker deploy stays `npm run deploy:cloudflare` → refused by design; prod is deployed only by
+  the existing frozen pipeline until an explicit Gate-5 release decision.
+
+### 10.4 PR reconciliation
+- Close #2,#3,#4,#6,#8–#16 as **superseded by `consolidate/canonical`** (content rolled in). Do this
+  only after the `main` cutover so the branches remain referenceable until then.
+- #17 → close as merged-into-baseline. #18 → keep open, re-scope to the declared-actives UI port (§9.3).
+
+### 10.5 Cleanup (after cutover, reversible order)
+- Remove the per-build re-alias on the shared project from §2 (now redundant; §2 rollback command).
+- Archive the 9 stale worktrees **only after** their branches are merged or confirmed superseded;
+  prune merged branches with `git branch -d` (never `-D` until confirmed).
+- Delete stale Vercel deployments of the old standalone staging FE once `myrota-staging-web` is the
+  accepted staging surface.
+
+### 10.6 Rollback summary
+- Staging project: `vercel remove myrota-staging-web --yes`.
+- Shared-project staging alias (if the §2 approach is reverted): §2 command.
+- `main` cutover: `git revert` the merge commit, or reset to `pre-consolidation-*` tag.
+- No destructive D1 operation is part of any step here.
