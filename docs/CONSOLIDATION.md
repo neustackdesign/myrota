@@ -446,3 +446,53 @@ before Gate-5 release (§10.1 #2):
 - **Android (compatible browser / installed PWA):** same core loop; web-push permission-after-action if testing reminders.
 The headless browser E2E (§9.2) and the live completion/persistence run (§9.8) cover the web-app logic and
 the server path; what remains is device-specific capture, install, and push behaviour only.
+
+---
+
+## 13. Final production-cutover checklist (concise runbook)
+One-page operator runbook. Detail/rationale for each line is in §10.3–§10.5. Nothing here is executed
+until §10.1 preconditions #2 (device) and #4 (sign-off) hold **and** cutover is explicitly approved.
+Do each in order; stop on any ❌.
+
+**A. Preflight**
+- [ ] `web.yml` + `api.yml` green on the cutover SHA (the legacy `Vercel` check stays red by design — §9.9; do not gate on it).
+- [ ] Device acceptance recorded: iPhone (installed PWA) + Android core loop pass (§12).
+- [ ] Stakeholder sign-off that `consolidate/canonical` is canonical.
+- [ ] Tag pre-cutover `main` → `pre-consolidation-YYYYMMDD`.
+- [ ] Export prod D1: `wrangler d1 export myrota --remote --output pre-cutover.sql` (break-glass restore).
+- [ ] Record the prod Vercel project's **current Ignored Build Step value** before changing it.
+
+**B. Legacy Vercel preview (gated setting change)**
+- [ ] Apply "Only build Production" Ignored Build Step on prod project: `bash -c 'if [ "$VERCEL_ENV" = "production" ]; then exit 1; else exit 0; fi'` (§10.3). Changes no build command / root / alias / env / prod branch. Rollback = restore the value recorded in A.
+
+**C. Merge**
+- [ ] Merge `consolidate/canonical → main` as a **merge commit** (not squash). Prod runtime unaffected by the merge.
+
+**D. Worker / API compatibility**
+- [ ] `wrangler d1 migrations list myrota --remote` → **expect zero pending** (consolidation changed no migrations). Any pending → ❌ STOP, review; never auto-apply to prod D1.
+- [ ] Deploy `apps/api` to prod Worker `myrota` via the existing frozen pipeline (not `npm run deploy:cloudflare`, refused by design).
+- [ ] `GET /api/health` ok; `GET /api/config` returns the **prod** Turnstile key `0x4AAAAAAFRb5uZcDUseLVAi` + prod capabilities, bound to D1 `7992c70c`.
+
+**E. D1 schema & data protection**
+- [ ] No schema change is part of cutover; prod D1 `7992c70c-171b-4a03-8b8f-e88d1fcba9c8` stays as-is.
+- [ ] No destructive D1 op in any step. If D in error applied a migration, restore from the A export.
+
+**F. Production frontend (sequenced, pre-alias)**
+- [ ] Point prod `apps/web` build: set prod Vercel project **Root Directory = `apps/web`** (or migrate to a monorepo-aware prod project).
+- [ ] Set prod env `MYROTA_API_ORIGIN = https://myrota.neustackdesign.workers.dev` (prod Worker origin, NOT staging).
+- [ ] Build deploys; keep the **unaliased** deployment URL for smoke.
+
+**G. Smoke (against the unaliased prod deployment, pre-alias)**
+- [ ] `BASE=https://myrota.neustackdesign.workers.dev node apps/api/tests/acceptance/completion-persistence.mjs` → 7/7.
+- [ ] Manual §9.2 journeys: config shows prod key, anonymous session, shelf save + refresh persists, rota generates, landing CTAs, PWA deep links.
+
+**H. Go live**
+- [ ] Flip prod alias `myrota-eight…` → new prod FE deployment.
+- [ ] Re-smoke the aliased host.
+- [ ] Watch logs + free-tier caps (Worker CPU/10ms, D1 rows 5M read/100k write, 10k neurons/day).
+
+**I. Rollback (any step)**
+- [ ] FE: re-point alias to previous deployment; revert Root Directory + Ignored Build Step to recorded values.
+- [ ] Worker: `wrangler rollback` to previous version.
+- [ ] `main`: `git revert` the merge commit (preferred) or reset to `pre-consolidation-*`.
+- [ ] D1: restore from the A export only if a schema op was wrongly applied.
