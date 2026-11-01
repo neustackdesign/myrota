@@ -247,6 +247,39 @@ no longer triggers the api pipeline, and vice versa. The nested `apps/api/.githu
 (Results recorded at commit time; the deployed `cf53de1` artifact is unaffected — the additions are
 type-only.)
 
+### 9.8 Evening-session completion + persistence — verified live (1 Nov 2026)
+Two layers, both green:
+- **Clock-controlled regression** — `tests/domain/scenarios.test.ts` scenario 10 injects `now` and
+  asserts: a 00:40 session counts for the *previous* skincare day, an event before 04:00 start or at/after
+  the next 04:00 is rejected `outside_skincare_day`, replay of an idempotency key is a no-op, and DST
+  fall-back/spring-forward windows are 25 h/23 h. The completion route (`app/api/completions/route.ts`)
+  stamps `occurredAt` with the **server clock** (no client-supplied time → no retroactive completion) and
+  delegates the entire boundary decision to this `applyCompletion`, so the route's boundary correctness
+  *is* this test.
+- **Live integrated path** — `tests/acceptance/completion-persistence.mjs` against the deployed staging
+  Worker + D1 (`node apps/api/tests/acceptance/completion-persistence.mjs`), **7/7**:
+  anonymous session → paste shelf → rota → **POST completion → fresh GET /api/today still shows the event
+  (persisted through D1) → replay idempotent → out-of-rota date rejected 422**.
+  Run at server `01:53Z` = **02:53 Africa/Lagos** (after local midnight, before the 04:00 rollover): the
+  completion correctly landed on skincare date **2026-10-31** (the prior calendar day). That is the
+  real after-midnight/evening boundary case, proven end-to-end against live infra — not only in a unit test.
+- **Still outstanding:** an actual run during the 17:00–04:00 UI "evening" framing window on a real
+  installed PWA (the 20:00-ish gating I saw in the browser E2E is a *client* presentation of the PM
+  session, not a server rule — the server accepts any in-window completion, as the live run above shows).
+
+### 9.9 Legacy prod Vercel check — acknowledged integration blocker (NOT a regression)
+Draft PR #23 shows one red check, **Vercel**, from the pre-existing **production** `myrota` Vercel
+project (`neustackdesign-gmailcoms-projects/myrota`). Its Git integration auto-builds every pushed
+branch/PR and runs `npm run vercel-build` against the repo **root**, which has no app since the
+consolidation (the apps live under `apps/*`) → the build fails. This is expected and is **not** caused by
+this branch:
+- A failed **preview** build promotes nothing and moves no production alias — prod runtime is untouched.
+- The checks that gate the consolidation — `web.yml` and `api.yml` — **pass** on this SHA.
+- The dedicated staging FE project `myrota-staging-web` is **READY** and isolated (§9.1).
+
+Treated as a known blocker to a fully-green PR, to be resolved at prod-FE cutover (§10.3), **not** by any
+production-project setting change now.
+
 ---
 
 ## 10. Production cutover + cleanup plan (NOT executed — gated on your approval)
@@ -255,10 +288,10 @@ Nothing below has been run. No merge to `main`, no prod service change, no branc
 deletion, no PR closure has happened.
 
 ### 10.1 Preconditions (must all hold first)
-1. Evening-window (or clock-controlled) completion-tap test passes on staging.
-2. At least one real iPhone (installed PWA) + Android pass of the core loop.
-3. The §9.4 shared-domain reconciliation either done+revalidated, or explicitly deferred to post-pilot with #18's UI port tracked.
-4. Stakeholder sign-off that `consolidate/canonical` is the canonical source.
+1. ✅ **Done** — clock-controlled completion regression (scenario 10) + live completion/persistence 7/7 on staging (§9.8). Remaining nicety: one run inside the UI "evening" window on an installed PWA (folds into #2).
+2. ⏳ **Outstanding (no hardware this session)** — at least one real iPhone (installed PWA) + Android pass of the core loop (photo capture, manual ingredient entry, auth, save, refresh). See §9.8 last bullet and §12.
+3. ✅ **Done** — §9.4 shared-domain reconciliation completed + revalidated (§11); #18's UI port tracked as a post-pilot follow-up (§9.3, §10.4).
+4. ⏳ **Outstanding** — stakeholder sign-off that `consolidate/canonical` is the canonical source.
 
 ### 10.2 Canonical `main` cutover (reversible)
 - Open a PR `consolidate/canonical → main`; require `web.yml`+`api.yml` green.
@@ -266,27 +299,80 @@ deletion, no PR closure has happened.
 - Tag the pre-cutover `main` as `pre-consolidation-YYYYMMDD` for instant rollback (`git reset --hard <tag>` + force-push is the break-glass; prefer `git revert` of the merge).
 - **Production runtime is unaffected by the merge** — prod Worker `myrota` + D1 `7992c70c` + alias `myrota-eight` stay frozen until a separate, explicit prod-deploy decision.
 
-### 10.3 Production frontend cutover (separate, later)
-- Prod FE currently builds from the shared `myrota` Vercel project. To serve the monorepo `apps/web`
-  to prod, set that project's **Root Directory = `apps/web`** (production-affecting — changes every
-  prod build) **or** migrate prod onto its own monorepo-aware project. Decide and schedule; do not
-  change the prod project's build settings as part of the `main` merge.
-- Prod Worker deploy stays `npm run deploy:cloudflare` → refused by design; prod is deployed only by
-  the existing frozen pipeline until an explicit Gate-5 release decision.
+### 10.3 Legacy prod Vercel check — proposed resolution (EVALUATED, not applied)
+Goal: stop the prod `myrota` project from auto-building the incompatible repo root on preview
+branches/PRs (the §9.9 red check) **without** touching prod production builds, aliases, env or the
+deployment branch — and without a root-level workaround in the repo.
 
-### 10.4 PR reconciliation
+**Cleanest eventual fix — a narrowly-scoped "Only build Production" Ignored Build Step** on the prod
+project (Settings → Git → Ignored Build Step):
+```
+bash -c 'if [ "$VERCEL_ENV" = "production" ]; then exit 1; else exit 0; fi'
+```
+Vercel semantics: exit 1 → build proceeds; exit 0 → build skipped. So production still builds exactly as
+today; every preview (feature branch / PR) is skipped → the red check disappears. It changes **no** build
+command, Root Directory, alias, env var or production-branch setting.
+
+**Before applying (required order):**
+1. **Record the current value** of the prod project's Ignored Build Step from the Vercel dashboard/CLI —
+   it has **not** been inspected or changed from this session (we deliberately left the prod project
+   alone; current observed behaviour = builds every push from root, i.e. no skip configured).
+2. **Rollback = restore that recorded value** (empty/default clears the override and returns to
+   build-everything). No other prod setting is involved, so rollback is a single field.
+3. This is a **production-project setting change → gated**: do not apply without explicit authorisation.
+   Until then the red check stands as an acknowledged blocker (§9.9); required status checks must remain
+   `web.yml` + `api.yml`, never the legacy `Vercel` check.
+
+### 10.4 Production cutover — exact sequence (NOT executed)
+Prod inventory (all FROZEN until this runs): Worker `myrota` · D1 `myrota` `7992c70c-171b-4a03-8b8f-e88d1fcba9c8`
+· alias `myrota-eight…` · Vercel project `myrota` · Turnstile managed key `0x4AAAAAAFRb5uZcDUseLVAi`.
+
+0. **Freeze window + tag** — tag pre-cutover `main` as `pre-consolidation-YYYYMMDD`; snapshot prod D1
+   (`wrangler d1 export myrota --remote --output pre-cutover.sql`) for break-glass restore.
+1. **Stop the legacy preview noise** — apply §10.3 Ignored Build Step (gated) so the cutover PR goes
+   fully green on the gating checks only.
+2. **Merge `consolidate/canonical → main`** — merge commit, not squash (§10.2). Prod runtime unaffected.
+3. **D1 compatibility check (read-only first)** — diff canonical Drizzle migrations against prod D1's
+   applied list: `wrangler d1 migrations list myrota --remote`. The consolidation changed **no**
+   migrations vs the deployed backend, so expect *zero pending*. If any pending appears, STOP and review —
+   do not auto-apply to prod D1.
+4. **Prod Worker upgrade** — deploy `apps/api` to the prod Worker via the existing frozen pipeline/secrets
+   (not `npm run deploy:cloudflare`, which is refused by design). Verify `/api/health` and `/api/config`
+   return the **prod** Turnstile key `0x4AAAAAAFRb5uZcDUseLVAi` and prod capabilities, bound to D1
+   `7992c70c`.
+5. **Prod frontend** — serve monorepo `apps/web` to prod by **either** setting the prod Vercel project's
+   **Root Directory = `apps/web`** (production-affecting — changes every prod build) **or** migrating prod
+   onto its own monorepo-aware project. Set prod env `MYROTA_API_ORIGIN = https://myrota.neustackdesign.workers.dev`
+   (prod Worker origin), not the staging origin. Decide/schedule separately from the merge.
+6. **Alias** — point the prod alias `myrota-eight…` at the new prod FE deployment only after step 7 smoke
+   passes on the *unaliased* deployment URL.
+7. **Smoke (against the new prod deployment URL, pre-alias)** — run the §9.8 `completion-persistence.mjs`
+   and §9.2 journeys with `BASE=<prod Worker>`: config shows prod key, anonymous session, shelf save +
+   refresh persists, rota generates, completion persists in prod D1, landing CTAs + PWA deep links work.
+8. **Flip alias**, re-smoke the aliased host, watch logs/usage for free-tier caps (CPU, D1 rows, neurons).
+
+### 10.5 Rollback (production cutover)
+- **FE:** re-point the prod alias to the previous prod deployment (`vercel alias set <prev-deployment> <prod-host>`);
+  revert the Root Directory / project change to its recorded prior value.
+- **Worker:** redeploy the previous Worker version (Cloudflare keeps versioned deploys; `wrangler rollback`).
+- **`main`:** `git revert` the merge commit (preferred) or reset to `pre-consolidation-*` tag.
+- **D1:** no schema change is part of the cutover; if step 3 ever applied one, restore from the step-0 export.
+  No destructive D1 operation is part of any step.
+
+### 10.6 PR reconciliation
 - Close #2,#3,#4,#6,#8–#16 as **superseded by `consolidate/canonical`** (content rolled in). Do this
   only after the `main` cutover so the branches remain referenceable until then.
 - #17 → close as merged-into-baseline. #18 → keep open, re-scope to the declared-actives UI port (§9.3).
+- #23 (this draft) → stays **draft** until §10.1 preconditions #2 and #4 hold and cutover is approved.
 
-### 10.5 Cleanup (after cutover, reversible order)
+### 10.7 Cleanup (after cutover, reversible order)
 - Remove the per-build re-alias on the shared project from §2 (now redundant; §2 rollback command).
 - Archive the 9 stale worktrees **only after** their branches are merged or confirmed superseded;
   prune merged branches with `git branch -d` (never `-D` until confirmed).
 - Delete stale Vercel deployments of the old standalone staging FE once `myrota-staging-web` is the
   accepted staging surface.
 
-### 10.6 Rollback summary
+### 10.8 Rollback summary (staging + merge; prod cutover rollback is §10.5)
 - Staging project: `vercel remove myrota-staging-web --yes`.
 - Shared-project staging alias (if the §2 approach is reverted): §2 command.
 - `main` cutover: `git revert` the merge commit, or reset to `pre-consolidation-*` tag.
@@ -343,3 +429,20 @@ entangles the gated prod change. The vendored-canonical + drift-guard gives the 
 single-source-of-truth guarantee, keeps both apps independently deployable, and stays green.
 A physical `packages/` extraction remains a clean post-pilot option if the repo-root
 deploy model is adopted for prod anyway (tracked in §10.3).
+
+**Interim status (explicit):** this is still **duplicated source** — two byte-identical copies held in
+sync by the CI drift guard — **not** a physically shared package. Accepted as the interim consolidation
+solution for pilot. No further refactor to a shared `packages/*` will be forced solely for directory
+purity before pilot acceptance.
+
+---
+
+## 12. Outstanding real-device validation (no hardware this session)
+Explicitly **not done** — requires physical devices, which this session has no access to. Must be run
+before Gate-5 release (§10.1 #2):
+- **iPhone (Safari → installed Home-Screen PWA):** photo capture of a back label, OCR-fail → manual
+  ingredient entry, authentication, shelf save, refresh/persistence, PWA deep links + Safari-vs-app
+  continuity (regression scenario 11).
+- **Android (compatible browser / installed PWA):** same core loop; web-push permission-after-action if testing reminders.
+The headless browser E2E (§9.2) and the live completion/persistence run (§9.8) cover the web-app logic and
+the server path; what remains is device-specific capture, install, and push behaviour only.
