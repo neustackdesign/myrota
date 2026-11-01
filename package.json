@@ -1,24 +1,14 @@
 {
-  "name": "myrota",
+  "name": "myrota-monorepo",
   "version": "0.1.0",
   "private": true,
+  "workspaces": ["apps/*"],
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "next lint",
-    "typecheck": "tsc --noEmit",
-    "test:benchmark": "node --test tests/ingestion-benchmark.test.mjs"
-  },
-  "dependencies": {
-    "next": "16.3.8",
-    "react": "19.3.0",
-    "react-dom": "19.3.0"
-  },
-  "devDependencies": {
-    "@types/node": "^24.0.0",
-    "@types/react": "^19.0.0",
-    "@types/react-dom": "^19.0.0",
-    "typescript": "^5.9.0"
+    "build:web": "npm run build -w @myrota/web",
+    "build:api": "npm run build:vinext -w @myrota/api",
+    "typecheck": "npm run typecheck -w @myrota/web && npm run typecheck -w @myrota/api",
+    "test:domain": "npm run test:domain -w @myrota/api",
+    "test:backend": "npm run test:backend -w @myrota/api",
+    "deploy:staging": "npm run deploy:staging -w @myrota/api"
   }
 }

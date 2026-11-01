@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2023", "DOM"],
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "outDir": ".domain-test",
+    "rootDir": ".",
+    "types": ["node"]
+  },
+  "include": ["lib/domain/**/*.ts", "lib/ui/ring.ts", "tests/domain/**/*.ts"]
+}

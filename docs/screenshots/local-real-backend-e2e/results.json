@@ -1,0 +1,117 @@
+{
+ "rotaId": "dcb147db-3889-4e1c-a31c-ca1f786dabc3",
+ "results": [
+  {
+   "name": "fresh guest sees Welcome (no session created on view)",
+   "pass": true,
+   "detail": "GET /api/config 200, GET /api/me 401"
+  },
+  {
+   "name": "anonymous session created on first write (Turnstile double)",
+   "pass": true,
+   "detail": "POST /api/auth/sign-in/anonymous 200"
+  },
+  {
+   "name": "product 1 persisted (POST /api/shelf 201)",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "pasted product saved",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "product 3 saved",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "duplicate typed name shows \"On shelf\"",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "three products persist after reload",
+   "pass": true,
+   "detail": "Gentle foaming cleanser:unknown/unknown/am | Shea night cream:user_confirmed/corrected/pm | SPF 50 sunscreen:unknown/unknown/am"
+  },
+  {
+   "name": "pasted + corrected product stays unverified (inci=corrected)",
+   "pass": true,
+   "detail": "user_confirmed/corrected"
+  },
+  {
+   "name": "rota created and persisted",
+   "pass": true,
+   "detail": "rotaId=dcb147db-3889-4e1c-a31c-ca1f786dabc3"
+  },
+  {
+   "name": "completion recorded once after double-click (Mark evening done)",
+   "pass": true,
+   "detail": "events=1 date=2026-10-08"
+  },
+  {
+   "name": "same rota ID after reload",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "second POST /api/rotas returns the existing active rota",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "Mix with unanalysed products returns Not enough evidence",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "name": "other browser: no session, shelf 401, foreign completion 401",
+   "pass": true,
+   "detail": "{\"me\":401,\"shelf\":401,\"comp\":401}"
+  },
+  {
+   "name": "no uncaught page errors",
+   "pass": true,
+   "detail": ""
+  }
+ ],
+ "apiCalls": [
+  "GET /api/config 200",
+  "GET /api/me 401",
+  "GET /api/me 401",
+  "GET /api/config 200",
+  "POST /api/auth/sign-in/anonymous 200",
+  "POST /api/shelf 201",
+  "GET /api/me 200",
+  "GET /api/shelf 200",
+  "POST /api/extract 200",
+  "POST /api/shelf 201",
+  "GET /api/shelf 200",
+  "POST /api/shelf 201",
+  "GET /api/shelf 200",
+  "GET /api/config 200",
+  "GET /api/me 200",
+  "GET /api/shelf 200",
+  "GET /api/today 200",
+  "GET /api/shelf 200",
+  "POST /api/rotas 201",
+  "GET /api/today 200",
+  "GET /api/rotas/current 200",
+  "POST /api/completions 200",
+  "GET /api/today 200",
+  "GET /api/today 200",
+  "GET /api/config 200",
+  "GET /api/me 200",
+  "GET /api/shelf 200",
+  "GET /api/today 200",
+  "GET /api/rotas/current 200",
+  "POST /api/rotas 201",
+  "GET /api/config 200",
+  "GET /api/me 200",
+  "GET /api/shelf 200",
+  "GET /api/today 200",
+  "POST /api/mix 200"
+ ]
+}

@@ -1,0 +1,30 @@
+name: web
+
+# Path-filtered: only runs when apps/web (or shared root manifests) change,
+# so an apps/api-only change does not trigger this pipeline.
+on:
+  push:
+    branches: [main, consolidate/canonical]
+    paths: ['apps/web/**', 'package.json', 'package-lock.json', '.github/workflows/web.yml']
+  pull_request:
+    paths: ['apps/web/**', 'package.json', 'package-lock.json', '.github/workflows/web.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: npm install
+      # Canonical domain guard: apps/web runs the engine-canonical domain + contract.
+      # This fails if the two copies ever drift (keep them a single source of truth).
+      - name: Domain/contract canonical (web == api)
+        run: diff -rq apps/web/lib/domain apps/api/lib/domain && diff -q apps/web/lib/api/contract.ts apps/api/lib/api/contract.ts
+      - run: npm run typecheck -w @myrota/web
+      - run: npm run build:web

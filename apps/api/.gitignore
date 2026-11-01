@@ -1,0 +1,26 @@
+.DS_Store
+node_modules
+.next
+out
+.env
+.env.local
+.env.*.local
+!.env.example
+.vercel
+coverage
+*.log
+.wrangler
+.dev.vars*
+dist
+.cloudflare
+.cloudflare/
+dist/
+
+# backend/domain test build output
+.domain-test
+.backend-test
+
+# generated (match base branch — not tracked)
+package-lock.json
+next-env.d.ts
+*.tsbuildinfo
